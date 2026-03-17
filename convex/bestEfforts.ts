@@ -20,6 +20,18 @@ export const listForUser = query({
   },
 });
 
+export const listForUserInternal = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("bestEfforts")
+      .withIndex("by_userId_name", (q) => q.eq("userId", args.userId))
+      .collect();
+  },
+});
+
 export const listStravaActivityIds = internalQuery({
   args: {
     userId: v.id("users"),

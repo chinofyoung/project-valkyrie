@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 // @ts-ignore
-import { internalMutation, internalQuery, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
 export const list = query({
@@ -33,6 +33,7 @@ export const insert = internalMutation({
     userId: v.id("users"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
+    displayText: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const content =
@@ -42,6 +43,7 @@ export const insert = internalMutation({
       userId: args.userId,
       role: args.role,
       content,
+      ...(args.displayText ? { displayText: args.displayText } : {}),
       createdAt: Date.now(),
     });
   },
@@ -91,5 +93,68 @@ export const countAssistantSince = internalQuery({
       .collect();
 
     return messages.length;
+  },
+});
+
+export const countForUser = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_userId_createdAt", (q) => q.eq("userId", args.userId))
+      .collect();
+    return messages.length;
+  },
+});
+
+export const listAllForUser = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("chatMessages")
+      .withIndex("by_userId_createdAt", (q) => q.eq("userId", args.userId))
+      .order("asc")
+      .collect();
+  },
+});
+
+export const deleteMessages = internalMutation({
+  args: {
+    messageIds: v.array(v.id("chatMessages")),
+  },
+  handler: async (ctx, args) => {
+    for (const id of args.messageIds) {
+      await ctx.db.delete(id);
+    }
+  },
+});
+
+export const addToChat = mutation({
+  args: {
+    content: v.string(),
+    displayText: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    return await ctx.db.insert("chatMessages", {
+      userId: user._id,
+      role: "user",
+      content: args.content,
+      displayText: args.displayText,
+      createdAt: Date.now(),
+    });
   },
 });

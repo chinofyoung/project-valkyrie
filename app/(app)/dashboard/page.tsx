@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useUser, UserButton } from "@clerk/nextjs";
 // @ts-ignore
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, useMutation } from "convex/react";
 // @ts-ignore
 import { api } from "@/convex/_generated/api";
 import { ActivityCard } from "@/components/activity-card";
@@ -47,15 +48,32 @@ function getBestPerDistance(efforts: any[]): any[] {
   return Array.from(map.values()).sort((a, b) => a.distance - b.distance);
 }
 
+const FEATURED_DISTANCES = ["5K", "10K", "Half-Marathon", "Marathon"];
+
 function BestEffortsSection({ efforts }: { efforts: any[] }) {
+  const [showAll, setShowAll] = useState(false);
   const bests = getBestPerDistance(efforts);
+  const featured = bests.filter((e: any) => FEATURED_DISTANCES.includes(e.name));
+  const displayed = showAll ? bests : featured;
+  const hasMore = bests.length > featured.length;
+
   return (
     <div className="mt-4 md:mt-5 bg-[#1A1A2A] rounded-2xl border border-white/5 p-5">
-      <span className="text-xs font-semibold uppercase tracking-widest text-[#9CA3AF] block mb-3">
-        Best Efforts
-      </span>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs font-semibold uppercase tracking-widest text-[#9CA3AF]">
+          Best Efforts
+        </span>
+        {hasMore && (
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="text-xs font-medium text-[#C8FC03] hover:text-[#C8FC03]/80 transition-colors"
+          >
+            {showAll ? "Show Key Distances" : "Show All"}
+          </button>
+        )}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {bests.map((effort: any) => (
+        {displayed.map((effort: any) => (
           <div
             key={effort.name}
             className="rounded-xl border border-white/5 p-3.5"
@@ -81,7 +99,14 @@ export default function DashboardPage() {
   const [syncing, setSyncing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
+  const router = useRouter();
+  // @ts-ignore
+  const addToChat = useMutation(api.chatMessages.addToChat);
+
   const activities = useQuery(api.activities.list, { limit: 20 });
+  // @ts-ignore
+  const analyzedIds = useQuery(api.aiAnalyses.listAnalyzedActivityIds) ?? [];
+  const analyzedSet = new Set(analyzedIds);
   // @ts-ignore
   const latestInsight = useQuery(api.aiAnalyses.getLatestProgressOverview);
   // @ts-ignore
@@ -103,6 +128,14 @@ export default function DashboardPage() {
     } finally {
       setSyncing(false);
     }
+  }
+
+  async function handleAddInsightToChat(insightContent: string) {
+    await addToChat({
+      content: insightContent,
+      displayText: "— Progress analysis added",
+    });
+    router.push("/chat");
   }
 
   async function handleAnalyzeProgress() {
@@ -344,6 +377,7 @@ export default function DashboardPage() {
           content={latestInsight?.content ?? null}
           loading={analyzing}
           onAnalyze={handleAnalyzeProgress}
+          onAddToChat={handleAddInsightToChat}
           label="Analyze Progress"
         />
       </div>
@@ -361,7 +395,7 @@ export default function DashboardPage() {
           </div>
           <div>
             {recentActivities.map((activity: any) => (
-              <ActivityCard key={activity._id} activity={activity} />
+              <ActivityCard key={activity._id} activity={activity} hasAnalysis={analyzedSet.has(activity._id)} />
             ))}
           </div>
         </div>

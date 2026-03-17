@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 // @ts-ignore
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
@@ -41,6 +41,9 @@ function speedToPaceMinPerKm(speedMps: number): string {
   const seconds = Math.round(secondsPerKm % 60);
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
+
+const COMPACT_THRESHOLD = 30;
+const KEEP_RECENT = 20;
 
 // ---------------------------------------------------------------------------
 // Rate limit helper (analyses + assistant chat messages, max 20/day)
@@ -137,6 +140,12 @@ export const sendMessage = action({
         { userId: user._id, limit: 5 }
       );
 
+      // Best efforts (personal records per distance)
+      const bestEfforts: any[] = await ctx.runQuery(
+        internal.bestEfforts.listForUserInternal,
+        { userId: user._id }
+      );
+
       // Active training plan
       const activePlan: any = await ctx.runQuery(
         internal.trainingPlans.getActive,
@@ -162,6 +171,26 @@ ${
         .join("\n")
 }
 
+PERSONAL BESTS:
+${
+  bestEfforts.length === 0
+    ? "No best efforts recorded."
+    : bestEfforts
+        .sort((a: any, b: any) => a.distance - b.distance)
+        .map((e: any) => {
+          const m = Math.floor(e.movingTime / 60);
+          const s = e.movingTime % 60;
+          const time = m > 59
+            ? `${Math.floor(m / 60)}:${(m % 60).toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
+            : `${m}:${s.toString().padStart(2, "0")}`;
+          const paceSecPerKm = e.movingTime / (e.distance / 1000);
+          const paceMin = Math.floor(paceSecPerKm / 60);
+          const paceSec = Math.round(paceSecPerKm % 60);
+          return `- ${e.name}: ${time} (${paceMin}:${paceSec.toString().padStart(2, "0")} /km)`;
+        })
+        .join("\n")
+}
+
 ${
   activePlan
     ? `ACTIVE TRAINING PLAN:
@@ -173,7 +202,11 @@ ${
 }
 `.trim();
 
-      const systemPrompt = `${BASE_COACHING_PROMPT}\n\n${contextPreamble}`;
+      const summaryBlock = user.chatSummary
+        ? `CONVERSATION HISTORY SUMMARY:\n${user.chatSummary}\n\n`
+        : "";
+
+      const systemPrompt = `${BASE_COACHING_PROMPT}\n\n${summaryBlock}${contextPreamble}`;
 
       // Build messages for Anthropic from conversation history
       // The current user message is already at the end of chatHistory
@@ -251,6 +284,11 @@ ${
         content: cleanedResponse,
       });
 
+      // Schedule background compaction
+      await ctx.scheduler.runAfter(0, internal.chat.compactHistory, {
+        userId: user._id,
+      });
+
       return cleanedResponse;
     } catch (err) {
       // Fallback: always insert an assistant message so isAiResponding unblocks.
@@ -263,5 +301,130 @@ ${
       // Re-throw so the client's catch block can also surface the error banner.
       throw err;
     }
+  },
+});
+
+export const compactNow = action({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    // @ts-ignore
+    const user = await ctx.runQuery(api.users.currentUser, {});
+    if (!user) throw new Error("User not found");
+
+    const userId = user._id;
+
+    const allMessages: any[] = await ctx.runQuery(
+      internal.chatMessages.listAllForUser,
+      { userId }
+    );
+
+    if (allMessages.length <= KEEP_RECENT) return;
+
+    const toSummarize = allMessages.slice(0, allMessages.length - KEEP_RECENT);
+    const existingSummary = user.chatSummary ?? "";
+
+    const transcript = toSummarize
+      .map((m: any) => `${m.role}: ${m.content}`)
+      .join("\n");
+
+    const prompt = existingSummary
+      ? `Here is the existing conversation summary:\n${existingSummary}\n\nHere are newer messages to incorporate:\n${transcript}\n\nProduce an updated summary that captures all key decisions, preferences, goals, and context from both the existing summary and the new messages. Keep it concise (max 500 words). Write in third person about the athlete.`
+      : `Summarize this coaching conversation. Capture key decisions, athlete preferences, goals, training history context, and any plans discussed. Keep it concise (max 500 words). Write in third person about the athlete.\n\n${transcript}`;
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
+
+    const client = new Anthropic({ apiKey });
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const summary = response.content
+      .filter((block) => block.type === "text")
+      .map((block) => (block as { type: "text"; text: string }).text)
+      .join("\n");
+
+    await ctx.runMutation(internal.users.updateChatSummary, {
+      userId,
+      chatSummary: summary,
+    });
+
+    await ctx.runMutation(internal.chatMessages.deleteMessages, {
+      messageIds: toSummarize.map((m: any) => m._id),
+    });
+  },
+});
+
+export const compactHistory = internalAction({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const { userId } = args;
+
+    // 1. Count messages
+    const count = await ctx.runQuery(
+      internal.chatMessages.countForUser,
+      { userId }
+    ) as number;
+
+    if (count <= COMPACT_THRESHOLD) return;
+
+    // 2. Load all messages
+    const allMessages: any[] = await ctx.runQuery(
+      internal.chatMessages.listAllForUser,
+      { userId }
+    );
+
+    // 3. Split: oldest to summarize, newest to keep
+    const toSummarize = allMessages.slice(0, allMessages.length - KEEP_RECENT);
+    if (toSummarize.length === 0) return;
+
+    // 4. Load existing summary
+    const user = await ctx.runQuery(internal.users.getById, { userId });
+    const existingSummary = user?.chatSummary ?? "";
+
+    // 5. Build summarization prompt
+    const transcript = toSummarize
+      .map((m: any) => `${m.role}: ${m.content}`)
+      .join("\n");
+
+    const prompt = existingSummary
+      ? `Here is the existing conversation summary:\n${existingSummary}\n\nHere are newer messages to incorporate:\n${transcript}\n\nProduce an updated summary that captures all key decisions, preferences, goals, and context from both the existing summary and the new messages. Keep it concise (max 500 words). Write in third person about the athlete.`
+      : `Summarize this coaching conversation. Capture key decisions, athlete preferences, goals, training history context, and any plans discussed. Keep it concise (max 500 words). Write in third person about the athlete.\n\n${transcript}`;
+
+    // 6. Call Claude to summarize
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      console.error("compactHistory: ANTHROPIC_API_KEY not set, skipping");
+      return;
+    }
+
+    const client = new Anthropic({ apiKey });
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const summary = response.content
+      .filter((block) => block.type === "text")
+      .map((block) => (block as { type: "text"; text: string }).text)
+      .join("\n");
+
+    // 7. Store summary on user record
+    await ctx.runMutation(internal.users.updateChatSummary, {
+      userId,
+      chatSummary: summary,
+    });
+
+    // 8. Delete old messages
+    await ctx.runMutation(internal.chatMessages.deleteMessages, {
+      messageIds: toSummarize.map((m: any) => m._id),
+    });
   },
 });

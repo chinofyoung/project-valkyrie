@@ -1,4 +1,4 @@
-import { internalQuery, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 
@@ -131,5 +131,15 @@ export const connectStrava = mutation({
         expiresAt: args.expiresAt,
       },
     });
+  },
+});
+
+export const updateChatSummary = internalMutation({
+  args: {
+    userId: v.id("users"),
+    chatSummary: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, { chatSummary: args.chatSummary });
   },
 });

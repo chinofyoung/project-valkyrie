@@ -23,6 +23,9 @@ export default function ActivitiesPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>("runs");
   const [page, setPage] = useState(0);
   const activities = useQuery(api.activities.list, { limit: 100 }) ?? undefined;
+  // @ts-ignore
+  const analyzedIds = useQuery(api.aiAnalyses.listAnalyzedActivityIds) ?? [];
+  const analyzedSet = new Set(analyzedIds);
 
   const isLoading = activities === undefined;
 
@@ -136,7 +139,7 @@ export default function ActivitiesPage() {
         <>
           <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 p-5">
             {paginatedActivities.map((activity: any) => (
-              <ActivityCard key={activity._id} activity={activity} />
+              <ActivityCard key={activity._id} activity={activity} hasAnalysis={analyzedSet.has(activity._id)} />
             ))}
           </div>
 

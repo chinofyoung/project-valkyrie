@@ -16,6 +16,7 @@ export default defineSchema({
       })
     ),
     lastSyncAt: v.optional(v.number()),
+    chatSummary: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_clerkId", ["clerkId"]),
 
@@ -77,6 +78,7 @@ export default defineSchema({
     userId: v.id("users"),
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
+    displayText: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_userId_createdAt", ["userId", "createdAt"]),
 

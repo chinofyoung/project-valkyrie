@@ -40,6 +40,10 @@ export default function ChatPage() {
   const isAiResponding = useQuery(api.chatMessages.isAiResponding);
   const sendMessage = useAction(api.chat.sendMessage);
 
+  const [compacting, setCompacting] = useState(false);
+  // @ts-ignore
+  const compactNow = useAction(api.chat.compactNow);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,6 +51,18 @@ export default function ChatPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isAiResponding]);
+
+  async function handleCompact() {
+    setCompacting(true);
+    try {
+      await compactNow({});
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Compact failed";
+      setError(msg);
+    } finally {
+      setCompacting(false);
+    }
+  }
 
   const handleSend = async (message: string) => {
     setError(null);
@@ -66,14 +82,31 @@ export default function ChatPage() {
           <h1 className="text-xl font-bold text-white">AI Coach</h1>
           <p className="text-xs text-white/50 mt-0.5">Always aware of your training</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10" style={{ background: "#1A1A2A" }}>
-          <span
-            className="w-2 h-2 rounded-full"
-            style={{ background: "#C8FC03" }}
-          />
-          <span className="text-xs font-medium" style={{ color: "#C8FC03" }}>
-            Online
-          </span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleCompact}
+            disabled={compacting}
+            title="Compact chat"
+            className="p-2 rounded-lg hover:bg-white/5 transition-colors disabled:opacity-50"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={compacting ? "#C8FC03" : "#9CA3AF"}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={compacting ? "animate-spin" : ""}
+            >
+              <path d="M4 14h6m-6-4h6m4 0h6m-6 4h6M12 2v20" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10" style={{ background: "#1A1A2A" }}>
+            <span className="w-2 h-2 rounded-full" style={{ background: "#C8FC03" }} />
+            <span className="text-xs font-medium" style={{ color: "#C8FC03" }}>Online</span>
+          </div>
         </div>
       </div>
 
@@ -148,6 +181,7 @@ export default function ChatPage() {
                 key={msg._id}
                 role={msg.role}
                 content={msg.content}
+                displayText={msg.displayText}
                 createdAt={msg.createdAt}
               />
             ))}

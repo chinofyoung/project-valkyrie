@@ -1,9 +1,10 @@
 "use client";
 
 import { use, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 // @ts-ignore
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, useMutation } from "convex/react";
 // @ts-ignore
 import { api } from "@/convex/_generated/api";
 import { StatCard } from "@/components/stat-card";
@@ -39,6 +40,17 @@ export default function ActivityDetailPage({ params }: PageProps) {
   const existingAnalysis = useQuery(api.aiAnalyses.getForActivity, { activityId: id });
   // @ts-ignore
   const analyzeRun = useAction(api.ai.analyzeRun);
+  const router = useRouter();
+  // @ts-ignore
+  const addToChat = useMutation(api.chatMessages.addToChat);
+
+  async function handleAddToChat(analysisContent: string) {
+    await addToChat({
+      content: analysisContent,
+      displayText: `— ${activity?.name ?? "Activity"} analysis added`,
+    });
+    router.push("/chat");
+  }
 
   async function handleAnalyzeRun() {
     setAnalyzing(true);
@@ -271,6 +283,7 @@ export default function ActivityDetailPage({ params }: PageProps) {
         content={existingAnalysis?.content ?? null}
         loading={analyzing}
         onAnalyze={handleAnalyzeRun}
+        onAddToChat={handleAddToChat}
         label="Analyze Run"
       />
     </div>

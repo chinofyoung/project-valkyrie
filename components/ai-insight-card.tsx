@@ -6,6 +6,7 @@ interface AiInsightCardProps {
   content: string | null;
   loading: boolean;
   onAnalyze: () => void;
+  onAddToChat?: (content: string) => void;
   label: string;
 }
 
@@ -31,7 +32,7 @@ function renderContent(text: string) {
   });
 }
 
-export function AiInsightCard({ content, loading, onAnalyze, label }: AiInsightCardProps) {
+export function AiInsightCard({ content, loading, onAnalyze, onAddToChat, label }: AiInsightCardProps) {
   const [collapsed, setCollapsed] = useState(true);
 
   if (loading) {
@@ -117,12 +118,22 @@ export function AiInsightCard({ content, loading, onAnalyze, label }: AiInsightC
         </button>
         <div>{renderContent(collapsed ? content.split(/\s+/).slice(0, 50).join(" ") + "..." : content)}</div>
         {!collapsed && (
-          <button
-            onClick={onAnalyze}
-            className="mt-4 text-xs text-[#9CA3AF] hover:text-[#C8FC03] transition-colors underline underline-offset-2"
-          >
-            Re-analyze
-          </button>
+          <div className="flex items-center gap-4 mt-4">
+            <button
+              onClick={onAnalyze}
+              className="text-xs text-[#9CA3AF] hover:text-[#C8FC03] transition-colors underline underline-offset-2"
+            >
+              Re-analyze
+            </button>
+            {onAddToChat && content && (
+              <button
+                onClick={() => onAddToChat(content)}
+                className="text-xs text-[#9CA3AF] hover:text-[#C8FC03] transition-colors underline underline-offset-2"
+              >
+                Add to Chat
+              </button>
+            )}
+          </div>
         )}
       </div>
     );

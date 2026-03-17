@@ -15,9 +15,10 @@ interface Activity {
 
 interface ActivityCardProps {
   activity: Activity;
+  hasAnalysis?: boolean;
 }
 
-export function ActivityCard({ activity }: ActivityCardProps) {
+export function ActivityCard({ activity, hasAnalysis }: ActivityCardProps) {
   return (
     <Link
       href={`/activities/${activity._id}`}
@@ -39,7 +40,14 @@ export function ActivityCard({ activity }: ActivityCardProps) {
 
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold text-white truncate">{activity.name}</div>
+        <div className="text-sm font-semibold text-white truncate flex items-center gap-1.5">
+          {activity.name}
+          {hasAnalysis && (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#C8FC03" className="flex-shrink-0" opacity="0.6">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          )}
+        </div>
         <div className="text-xs text-[#9CA3AF] mt-0.5">
           {formatRelativeDate(activity.startDate)} &middot; {formatDuration(activity.movingTime)}
           {activity.averageHeartrate && (
