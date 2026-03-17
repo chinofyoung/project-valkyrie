@@ -1,4 +1,4 @@
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
 
@@ -49,6 +49,15 @@ export const currentUser = query({
         q.eq("clerkId", identity.subject)
       )
       .unique();
+  },
+});
+
+export const getById = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.userId);
   },
 });
 
