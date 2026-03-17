@@ -1,0 +1,172 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+}
+
+const DashboardIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M4 13h6a1 1 0 001-1V4a1 1 0 00-1-1H4a1 1 0 00-1 1v8a1 1 0 001 1zm0 8h6a1 1 0 001-1v-4a1 1 0 00-1-1H4a1 1 0 00-1 1v4a1 1 0 001 1zm10 0h6a1 1 0 001-1v-8a1 1 0 00-1-1h-6a1 1 0 00-1 1v8a1 1 0 001 1zm0-18v4a1 1 0 001 1h6a1 1 0 001-1V3a1 1 0 00-1-1h-6a1 1 0 00-1 1z" />
+  </svg>
+);
+
+const ActivitiesIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+  </svg>
+);
+
+const ChatIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+  </svg>
+);
+
+const PlanIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+  </svg>
+);
+
+const ProfileIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
+
+const SettingsIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const navItems: NavItem[] = [
+  { href: "/dashboard", label: "Dashboard", icon: <DashboardIcon /> },
+  { href: "/activities", label: "Activities", icon: <ActivitiesIcon /> },
+  { href: "/chat", label: "AI Chat", icon: <ChatIcon /> },
+  { href: "/plan", label: "Training Plan", icon: <PlanIcon /> },
+  { href: "/profile", label: "Profile", icon: <ProfileIcon /> },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <aside
+      style={{
+        width: "240px",
+        height: "100vh",
+        background: "#1A1A2A",
+        borderRight: "1px solid rgba(255,255,255,0.05)",
+        padding: "24px 16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: "4px",
+        position: "sticky",
+        top: 0,
+      }}
+    >
+      {/* Logo */}
+      <div
+        style={{
+          fontSize: "20px",
+          fontWeight: 800,
+          padding: "8px 12px",
+          marginBottom: "24px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+        }}
+      >
+        <span
+          style={{
+            width: "10px",
+            height: "10px",
+            background: "#C8FC03",
+            borderRadius: "50%",
+            display: "inline-block",
+            flexShrink: 0,
+          }}
+        />
+        RunCoach
+      </div>
+
+      {/* Nav items */}
+      {navItems.map((item) => {
+        const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            style={{
+              padding: "10px 12px",
+              borderRadius: "10px",
+              fontSize: "14px",
+              fontWeight: 500,
+              color: isActive ? "#C8FC03" : "#9CA3AF",
+              background: isActive ? "rgba(200, 252, 3, 0.1)" : "transparent",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              textDecoration: "none",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              if (!isActive) {
+                (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.05)";
+                (e.currentTarget as HTMLAnchorElement).style.color = "#FFFFFF";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) {
+                (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
+                (e.currentTarget as HTMLAnchorElement).style.color = "#9CA3AF";
+              }
+            }}
+          >
+            {item.icon}
+            {item.label}
+          </Link>
+        );
+      })}
+
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* Settings */}
+      <Link
+        href="/settings"
+        style={{
+          padding: "10px 12px",
+          borderRadius: "10px",
+          fontSize: "14px",
+          fontWeight: 500,
+          color: "#9CA3AF",
+          background: "transparent",
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+          textDecoration: "none",
+          transition: "all 0.2s",
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.05)";
+          (e.currentTarget as HTMLAnchorElement).style.color = "#FFFFFF";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
+          (e.currentTarget as HTMLAnchorElement).style.color = "#9CA3AF";
+        }}
+      >
+        <SettingsIcon />
+        Settings
+      </Link>
+    </aside>
+  );
+}
