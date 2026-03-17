@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { Id } from "./_generated/dataModel";
 
 export const list = query({
@@ -46,6 +46,39 @@ export const getById = query({
     if (!activity || activity.userId !== user._id) return null;
 
     return activity;
+  },
+});
+
+export const listForUserSince = internalQuery({
+  args: {
+    userId: v.id("users"),
+    since: v.number(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 100;
+    return await ctx.db
+      .query("activities")
+      .withIndex("by_userId_startDate", (q) =>
+        q.eq("userId", args.userId).gte("startDate", args.since)
+      )
+      .order("desc")
+      .take(limit);
+  },
+});
+
+export const listRecentForUser = internalQuery({
+  args: {
+    userId: v.id("users"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 5;
+    return await ctx.db
+      .query("activities")
+      .withIndex("by_userId_startDate", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .take(limit);
   },
 });
 
