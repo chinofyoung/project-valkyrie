@@ -8,9 +8,15 @@ import { api } from "@/convex/_generated/api";
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function GET(req: NextRequest) {
-  const { userId } = await auth();
+  const { userId, getToken } = await auth();
   if (!userId) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Authenticate ConvexHttpClient with Clerk JWT
+  const token = await getToken({ template: "convex" });
+  if (token) {
+    convex.setAuth(token);
   }
 
   const code = req.nextUrl.searchParams.get("code");
