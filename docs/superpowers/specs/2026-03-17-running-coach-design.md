@@ -29,6 +29,8 @@ A multi-user AI-powered running coach web app. Users connect their Strava accoun
 
 **Strava OAuth:** After login, users connect their Strava account via a "Connect Strava" button. The OAuth flow uses a Next.js API route (one exception to Convex-centric — OAuth redirects need a traditional HTTP endpoint) that exchanges the code for tokens and stores them in Convex.
 
+**CSRF protection:** `/api/strava/auth` generates a random `state` parameter and stores it in a short-lived HTTP-only cookie. `/api/strava/callback` validates the returned `state` against the cookie before exchanging the code. Requests with missing or mismatched `state` are rejected.
+
 **Key decisions:**
 - Strava tokens stored in the users table for simplicity
 - Token refresh handled automatically before any Strava API call
@@ -52,8 +54,8 @@ A multi-user AI-powered running coach web app. Users connect their Strava accoun
 | `movingTime` | number | seconds |
 | `elapsedTime` | number | seconds |
 | `totalElevationGain` | number | meters |
-| `averagePace` | number | |
-| `maxPace` | number | |
+| `averageSpeed` | number | meters/second (from Strava), convert to pace in UI |
+| `maxSpeed` | number | meters/second (from Strava), convert to pace in UI |
 | `averageHeartrate` | number | |
 | `maxHeartrate` | number | |
 | `averageCadence` | number | |
@@ -76,13 +78,28 @@ A multi-user AI-powered running coach web app. Users connect their Strava accoun
 | `startedAt` | number (timestamp) | |
 | `completedAt` | number (timestamp) | |
 
+### Indexes
+
+All tables use Convex `defineSchema` with runtime validation. Key compound indexes:
+
+| Table | Index Name | Fields | Purpose |
+|-------|-----------|--------|---------|
+| `activities` | `by_userId_startDate` | `[userId, startDate]` | Activity list sorted by date |
+| `activities` | `by_userId_stravaId` | `[userId, stravaId]` | Dedup lookups (multi-tenant safe) |
+| `chatMessages` | `by_userId_createdAt` | `[userId, createdAt]` | Last 50 messages query |
+| `syncStatus` | `by_userId` | `[userId]` | One row per user, upserted |
+| `aiAnalyses` | `by_userId_activityId` | `[userId, activityId]` | Cache lookups per activity |
+| `trainingPlans` | `by_userId_status` | `[userId, status]` | Find active plan |
+
 ### Sync Logic
 
-1. **Initial sync:** User taps "Sync Strava." A Convex action fetches activities from Strava API in pages of 200 (Strava's max). After each page, a mutation batch-inserts activities and updates `syncStatus` progress. The frontend subscribes to `syncStatus` for a real-time progress bar.
+1. **Initial sync:** User taps "Sync Strava." The sync mutation first checks `syncStatus` — if already "syncing", the request is rejected (prevents duplicate syncs and race conditions on dedup). A Convex action fetches one page of 200 activities from Strava, batch-inserts them via mutation, updates `syncStatus` progress, then uses `ctx.scheduler.runAfter(0, ...)` to schedule itself for the next page. This self-scheduling pattern avoids Convex action timeout limits. The frontend subscribes to `syncStatus` for a real-time progress bar.
 
-2. **Incremental sync:** Subsequent syncs pass `after` parameter set to `lastSyncAt` timestamp. Only new activities are fetched and inserted. Deduplication via `stravaId` index.
+2. **Incremental sync:** Subsequent syncs pass `after` parameter set to `lastSyncAt` timestamp. Only new activities are fetched and inserted. Deduplication via `by_userId_stravaId` compound index — query before insert, skip if exists.
 
 3. **Token refresh:** Before any Strava call, check `expiresAt`. If expired, refresh using `refreshToken`, update stored tokens, then proceed.
+
+**Sync status model:** One `syncStatus` row per user, upserted on each sync. Not a history log — fields are overwritten each sync.
 
 **Why store `raw`?** Strava's API returns fields we might not use today but could want later (weather, device info, segment efforts). Storing the full response avoids re-fetching historical data.
 
@@ -128,7 +145,7 @@ Three AI interaction modes, all powered by Anthropic's Claude API.
 | `goal` | string | |
 | `startDate` | number (timestamp) | |
 | `endDate` | number (timestamp) | |
-| `weeks` | array | week objects with daily workout descriptions |
+| `weeks` | array | week objects with daily workouts, each workout has `description`, `type`, `completed` (boolean) |
 | `status` | string | "active" / "completed" / "abandoned" |
 | `createdAt` | number (timestamp) | |
 
@@ -157,8 +174,8 @@ Persistent, single-thread conversation per user. No thread splitting — users s
 
 1. User sends a message -> mutation inserts it into `chatMessages`
 2. A Convex action fires: gathers the last 50 messages for conversation context, pulls a summary of the user's recent activity data (last 30 days aggregated stats, most recent 5 activities), and calls Anthropic
-3. AI response stored as a single assistant message once complete
-4. Frontend subscribes to `chatMessages` query — response appears in real-time
+3. AI response stored as a single assistant message once complete (no token-level streaming in v1)
+4. Frontend subscribes to `chatMessages` query — new message appears reactively via Convex subscription. A typing indicator is shown while the action is in flight.
 
 ### Context Injection
 
@@ -232,7 +249,7 @@ This gives the AI "memory" of the user's running without stuffing the full histo
 - All queries filter by `userId` — users can only see their own data
 - Strava tokens never sent to the client — all Strava API calls happen server-side in Convex actions
 - Anthropic API key lives as a Convex environment variable — never exposed to client
-- Rate limiting on AI calls: max 20 AI calls per user per day (checked in Convex action)
+- Rate limiting on AI calls: max 20 AI calls per user per day. Tracked by counting `aiAnalyses` rows + `chatMessages` with role "assistant" created today for the user. Checked in the Convex action before calling Anthropic.
 
 ### Environment Variables
 
@@ -242,6 +259,7 @@ This gives the AI "memory" of the user's running without stuffing the full histo
 | Convex URL | Next.js env | public |
 | Strava client ID/secret | Convex env | server-only |
 | Anthropic API key | Convex env | server-only |
+| Strava redirect URI | Next.js env | server-only (env-dependent: localhost vs prod) |
 | Strava tokens | Per-user in Convex DB | server-only |
 
 ---
@@ -267,7 +285,7 @@ This gives the AI "memory" of the user's running without stuffing the full histo
 
 ### Auth Edge Cases
 - Clerk session expires: Convex rejects queries, frontend redirects to login
-- Account deletion: cascade delete all user data (activities, analyses, chat, plans)
+- Account deletion: a Convex action queries and deletes from all related tables: `activities`, `syncStatus`, `aiAnalyses`, `trainingPlans`, `chatMessages`, then deletes the `users` row. Convex has no built-in cascade — this is manual.
 
 ---
 
