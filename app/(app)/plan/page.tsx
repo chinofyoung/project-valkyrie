@@ -216,7 +216,7 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pb-8">
+    <div className="pb-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{plan.goal}</h1>
