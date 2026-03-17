@@ -18,7 +18,13 @@ You understand training principles deeply: the importance of easy days and hard 
 
 Your recommendations are always actionable and specific. Instead of "run more," you say "aim for one additional easy 5K this week." Instead of "recover better," you say "consider moving your hard workout from Tuesday to Thursday to allow 48 hours after Monday's long run."
 
-You keep responses focused and practical. Athletes want insights they can apply immediately.`;
+You keep responses focused and practical. Athletes want insights they can apply immediately.
+
+When the user asks you to create a training plan, include a JSON block in your response with this exact format:
+\`\`\`json
+{"trainingPlan": {"goal": "...", "weeks": [{"weekNumber": 1, "workouts": [{"day": "Monday", "description": "...", "type": "easy/tempo/interval/long/rest", "completed": false}]}]}}
+\`\`\`
+Place this JSON block at the very end of your message, after your conversational explanation of the plan. Use workout types: "easy", "tempo", "interval", "long", or "rest".`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -186,12 +192,51 @@ ${
       .map((block) => (block as { type: "text"; text: string }).text)
       .join("\n");
 
+    // Detect and extract a training plan JSON block if present
+    const jsonBlockRegex = /```json\s*(\{[\s\S]*?"trainingPlan"[\s\S]*?\})\s*```/;
+    const jsonMatch = responseText.match(jsonBlockRegex);
+
+    let cleanedResponse = responseText;
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1]);
+        const planData = parsed.trainingPlan;
+
+        if (planData && planData.goal && Array.isArray(planData.weeks)) {
+          // Calculate startDate as next Monday
+          const now = new Date();
+          const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+          const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+          const startDate = new Date(now);
+          startDate.setDate(now.getDate() + daysUntilMonday);
+          startDate.setHours(0, 0, 0, 0);
+
+          const endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + planData.weeks.length * 7);
+
+          await ctx.runMutation(internal.trainingPlans.create, {
+            userId: user._id,
+            goal: planData.goal,
+            startDate: startDate.getTime(),
+            endDate: endDate.getTime(),
+            weeks: planData.weeks,
+            status: "active",
+          });
+        }
+      } catch {
+        // If parsing fails, we just store the full response as-is
+      }
+
+      // Strip the JSON block from the stored message so the user only sees the coaching text
+      cleanedResponse = responseText.replace(jsonBlockRegex, "").trim();
+    }
+
     await ctx.runMutation(internal.chatMessages.insert, {
       userId: user._id,
       role: "assistant",
-      content: responseText,
+      content: cleanedResponse,
     });
 
-    return responseText;
+    return cleanedResponse;
   },
 });
