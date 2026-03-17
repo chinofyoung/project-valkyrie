@@ -71,12 +71,28 @@ export const connectStravaInternal = mutation({
     expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
-    const user = await ctx.db
+    let user = await ctx.db
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
       .unique();
 
-    if (!user) throw new Error("User not found");
+    // User record may not exist yet if syncUser hasn't fired —
+    // create it now so the Strava connection isn't lost.
+    if (!user) {
+      const userId = await ctx.db.insert("users", {
+        clerkId: args.clerkId,
+        email: "",
+        name: "Runner",
+        stravaConnected: true,
+        stravaTokens: {
+          accessToken: args.accessToken,
+          refreshToken: args.refreshToken,
+          expiresAt: args.expiresAt,
+        },
+        createdAt: Date.now(),
+      });
+      return;
+    }
 
     await ctx.db.patch(user._id, {
       stravaConnected: true,
