@@ -224,12 +224,24 @@ export default defineSchema({
 
 - [ ] **Step 4: Create Clerk middleware**
 
-Create `middleware.ts` at the project root:
+Create `middleware.ts` at the project root (Note: the Clerk guide says `proxy.ts`, but Next.js requires `middleware.ts` at the root for automatic detection. This is the correct naming for Next.js App Router.):
 
 ```typescript
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-export default clerkMiddleware();
+const isProtectedRoute = createRouteMatcher([
+  "/dashboard(.*)",
+  "/activities(.*)",
+  "/chat(.*)",
+  "/plan(.*)",
+  "/profile(.*)",
+]);
+
+export default clerkMiddleware(async (auth, req) => {
+  if (isProtectedRoute(req)) {
+    await auth.protect();
+  }
+});
 
 export const config = {
   matcher: [
@@ -238,6 +250,8 @@ export const config = {
   ],
 };
 ```
+
+This middleware protects all app routes — unauthenticated users are redirected to sign-in automatically.
 
 - [ ] **Step 5: Create Convex auth config**
 
@@ -486,11 +500,12 @@ export const currentUser = query({
 
 - [ ] **Step 12: Add env variables to `.env.local`**
 
-Append the following to `.env.local` (Clerk keys come from keyless mode or dashboard):
+Append the following to `.env.local`. Note: Clerk supports keyless mode — you can skip `CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` initially and Clerk will auto-generate temporary keys. Add real keys later from the Clerk dashboard when ready for production:
 
 ```
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<from clerk dashboard>
-CLERK_SECRET_KEY=<from clerk dashboard>
+# Optional for keyless mode — add real keys for production
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=<from clerk dashboard, optional for keyless>
+CLERK_SECRET_KEY=<from clerk dashboard, optional for keyless>
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
 NEXT_PUBLIC_CONVEX_URL=<from npx convex init>
@@ -653,25 +668,101 @@ git commit -m "feat: add app shell with sidebar, bottom tabs, and route placehol
 
 Create `app/api/strava/auth/route.ts`:
 
-- Generate random `state` string (crypto.randomUUID)
-- Store `state` in HTTP-only cookie with 10-minute expiry
-- Redirect to `https://www.strava.com/oauth/authorize` with params:
-  - `client_id` from env
-  - `redirect_uri` from env (`STRAVA_REDIRECT_URI`)
-  - `response_type=code`
-  - `scope=read,activity:read_all`
-  - `state` parameter
-- Require Clerk auth via `auth()` — reject unauthenticated requests
+```typescript
+import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+
+export async function GET() {
+  const { userId } = await auth();
+  if (!userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const state = crypto.randomUUID();
+
+  const cookieStore = await cookies();
+  cookieStore.set("strava_oauth_state", state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600, // 10 minutes
+    path: "/",
+  });
+
+  const params = new URLSearchParams({
+    client_id: process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID!,
+    redirect_uri: process.env.STRAVA_REDIRECT_URI!,
+    response_type: "code",
+    scope: "read,activity:read_all",
+    state,
+  });
+
+  redirect(`https://www.strava.com/oauth/authorize?${params.toString()}`);
+}
+```
 
 - [ ] **Step 2: Create Strava OAuth callback route**
 
 Create `app/api/strava/callback/route.ts`:
 
-- Validate `state` parameter against cookie — reject if mismatch
-- Exchange `code` for tokens via POST to `https://www.strava.com/oauth/token`
-- Call Convex mutation `users.connectStrava` with tokens (accessToken, refreshToken, expiresAt)
-- Clear state cookie
-- Redirect to `/profile` with success
+```typescript
+import { auth } from "@clerk/nextjs/server";
+import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "@/convex/_generated/api";
+
+const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+
+export async function GET(req: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const code = req.nextUrl.searchParams.get("code");
+  const state = req.nextUrl.searchParams.get("state");
+  const cookieStore = await cookies();
+  const storedState = cookieStore.get("strava_oauth_state")?.value;
+
+  // CSRF validation
+  if (!state || !storedState || state !== storedState) {
+    return new Response("Invalid state parameter", { status: 403 });
+  }
+
+  // Clear state cookie
+  cookieStore.delete("strava_oauth_state");
+
+  // Exchange code for tokens
+  const tokenRes = await fetch("https://www.strava.com/oauth/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID,
+      client_secret: process.env.STRAVA_CLIENT_SECRET,
+      code,
+      grant_type: "authorization_code",
+    }),
+  });
+
+  if (!tokenRes.ok) {
+    return NextResponse.redirect(new URL("/profile?error=strava_auth_failed", req.url));
+  }
+
+  const tokens = await tokenRes.json();
+
+  // Store tokens in Convex
+  await convex.mutation(api.users.connectStrava, {
+    clerkId: userId,
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token,
+    expiresAt: tokens.expires_at,
+  });
+
+  return NextResponse.redirect(new URL("/profile?strava=connected", req.url));
+}
+```
 
 - [ ] **Step 3: Add `connectStrava` mutation to users.ts**
 
@@ -717,6 +808,7 @@ Update `app/(app)/profile/page.tsx`:
 - If not connected: show "Connect Strava" button that navigates to `/api/strava/auth`
 - If connected: show green "Strava Connected" badge
 - Add UserButton from Clerk for account management
+- Add "Delete Account" button (destructive, requires confirmation dialog). Calls a `users.deleteAccount` action that cascade-deletes all user data: queries and deletes from `activities`, `syncStatus`, `aiAnalyses`, `trainingPlans`, `chatMessages`, then deletes the `users` row. After deletion, sign out via Clerk and redirect to `/sign-in`.
 
 - [ ] **Step 5: Add env variables**
 
@@ -766,32 +858,33 @@ Create `convex/activities.ts`:
 
 - `list` query: paginated list of activities for current user, sorted by `startDate` desc (use `by_userId_startDate` index, `.order("desc")`)
 - `getById` query: single activity by ID (verify ownership)
-- `batchInsert` internal mutation: insert array of activity objects, skip duplicates by checking `by_userId_stravaId` index before each insert
+- `batchInsert` using `internalMutation` (not client-callable): insert array of activity objects, skip duplicates by checking `by_userId_stravaId` index before each insert
 
 - [ ] **Step 3: Create Strava sync action with self-scheduling**
 
 Create `convex/strava.ts`:
 
-- `refreshTokenIfNeeded` internal action: checks `expiresAt`, refreshes via Strava API if expired, updates user record
-- `startSync` action (user-facing):
+- `refreshTokenIfNeeded` using `internalAction`: checks `expiresAt`, refreshes via Strava API if expired, updates user record via `ctx.runMutation`
+- `startSync` action (user-facing, callable from client via `useAction`):
   - Verify auth, get user
   - Check syncStatus — reject if already "syncing"
-  - Set syncStatus to "syncing"
-  - Call `fetchActivitiesPage` with page 1
-- `fetchActivitiesPage` internal action:
+  - Set syncStatus to "syncing" via `ctx.runMutation`
+  - Schedule `fetchActivitiesPage` via `ctx.scheduler.runAfter(0, internal.strava.fetchActivitiesPage, { ... })`
+- `fetchActivitiesPage` using `internalAction` (not client-callable):
   - Refresh token if needed
   - Fetch one page of 200 activities from `https://www.strava.com/api/v3/athlete/activities` with `per_page=200&page=N` and optional `after` param for incremental sync
   - Call `activities.batchInsert` mutation with the fetched activities (map Strava fields to our schema)
   - Update syncStatus progress (syncedActivities += page count)
   - If page returned 200 activities (full page = more to fetch): `ctx.scheduler.runAfter(0, internal.strava.fetchActivitiesPage, { ...nextPageArgs })`
   - If page returned < 200: sync complete, update syncStatus to "completed", update user's `lastSyncAt`
+  - **Error recovery:** Wrap the fetch/insert in try-catch. On failure, update syncStatus to "error" with `lastError` message. The next sync attempt uses `lastSyncAt` from the user record, so it effectively resumes from where it left off (activities already inserted are skipped via dedup).
 
 - [ ] **Step 4: Create sync button component**
 
 Create `components/sync-button.tsx`:
 
 - Uses `useQuery(api.syncStatus.getSyncStatus)` for real-time status
-- Uses `useMutation(api.strava.startSync)` to trigger sync
+- Uses `useAction(api.strava.startSync)` to trigger sync
 - Shows progress bar when syncing (syncedActivities / totalActivities)
 - Disabled when already syncing
 - Shows last sync time when idle
@@ -850,7 +943,7 @@ export function metersToKm(meters: number): string {
 export function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
+  const s = Math.floor(seconds % 60);
   if (h > 0) {
     return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   }
@@ -1004,7 +1097,31 @@ Create `convex/aiAnalyses.ts`:
 
 Create `convex/ai.ts`:
 
-- `checkRateLimit` internal helper: count today's AI calls for user (aiAnalyses created today + chatMessages with role "assistant" created today). Return boolean.
+- `checkRateLimit` internal helper function (not a Convex function, just a shared async helper used by actions):
+
+```typescript
+async function checkRateLimit(ctx: ActionCtx, userId: Id<"users">): Promise<boolean> {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  const todayTimestamp = startOfDay.getTime();
+
+  // Count AI analyses created today
+  const analyses = await ctx.runQuery(internal.aiAnalyses.countSince, {
+    userId,
+    since: todayTimestamp,
+  });
+
+  // Count assistant chat messages created today
+  const chatResponses = await ctx.runQuery(internal.chatMessages.countAssistantSince, {
+    userId,
+    since: todayTimestamp,
+  });
+
+  return (analyses + chatResponses) < 20;
+}
+```
+
+Add corresponding `countSince` and `countAssistantSince` as `internalQuery` functions in their respective files.
 - `analyzeRun` action:
   - Verify auth, check rate limit
   - Get the activity and last 7 days of activities for context
@@ -1035,7 +1152,7 @@ Create `components/ai-insight-card.tsx`:
 Modify `app/(app)/activities/[id]/page.tsx`:
 
 - Add `useQuery(api.aiAnalyses.getForActivity)` to check for existing analysis
-- "Analyze Run" button calls `useMutation(api.ai.analyzeRun)`
+- "Analyze Run" button calls `useAction(api.ai.analyzeRun)`
 - Show AI insight card with the analysis when it exists
 - Show loading spinner while action is running
 
@@ -1043,7 +1160,7 @@ Modify `app/(app)/activities/[id]/page.tsx`:
 
 Modify `app/(app)/dashboard/page.tsx`:
 
-- "Analyze Progress" button calls `useMutation(api.ai.analyzeProgress)`
+- "Analyze Progress" button calls `useAction(api.ai.analyzeProgress)`
 - Show latest AI insight card on dashboard (from `aiAnalyses.getLatestInsight`)
 - Disable button while analysis is in progress
 
@@ -1124,7 +1241,7 @@ Update `app/(app)/chat/page.tsx`:
 - Header: "AI Coach" title with "Online" status badge
 - Messages area: scrollable, auto-scrolls to bottom on new messages
 - Uses `useQuery(api.chatMessages.list)` for reactive message list
-- Uses `useMutation(api.chat.sendMessage)` for sending
+- Uses `useAction(api.chat.sendMessage)` for sending
 - Typing indicator (3 animated dots) shown when `isAiResponding` is true
 - Empty state: welcome message encouraging the user to ask about their training
 - "Load older messages" button at top for pagination
