@@ -34,7 +34,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6">
+    <div className="max-w-xl mx-auto space-y-6 pb-8">
       <h1 className="text-2xl font-bold text-text-primary">Profile</h1>
 
       {/* User info card */}

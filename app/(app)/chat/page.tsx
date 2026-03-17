@@ -59,7 +59,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "#0A0A0A" }}>
+    <div className="flex flex-col" style={{ background: "#0A0A0A" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-white/10">
         <div>
@@ -78,10 +78,10 @@ export default function ChatPage() {
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="px-4 py-4 pb-2">
         {messages == null ? (
           // Loading state
-          <div className="flex items-center justify-center h-full">
+          <div className="flex items-center justify-center py-12">
             <span className="text-white/40 text-sm">Loading...</span>
           </div>
         ) : messages.length === 0 && !isAiResponding ? (

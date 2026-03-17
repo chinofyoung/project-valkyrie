@@ -55,7 +55,7 @@ export default function ActivityDetailPage({ params }: PageProps) {
 
   if (activity === undefined) {
     return (
-      <div className="max-w-2xl mx-auto px-4 pb-8">
+      <div className="pb-8">
         <div className="py-5">
           <BackButton />
         </div>
@@ -68,7 +68,7 @@ export default function ActivityDetailPage({ params }: PageProps) {
 
   if (activity === null) {
     return (
-      <div className="max-w-2xl mx-auto px-4 pb-8">
+      <div className="pb-8">
         <div className="py-5">
           <BackButton />
         </div>
@@ -86,7 +86,7 @@ export default function ActivityDetailPage({ params }: PageProps) {
   const hasSplits = Array.isArray(activity.splits) && activity.splits.length > 0;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pb-8">
+    <div className="pb-8">
       {/* Header */}
       <div className="py-5">
         <BackButton />
@@ -98,52 +98,55 @@ export default function ActivityDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 p-5 mb-4">
-        <div className="grid grid-cols-3 gap-4">
-          <StatCard value={metersToKm(activity.distance)} label="km" />
-          <StatCard value={speedToPace(activity.averageSpeed)} label="min/km" />
-          <StatCard value={formatDuration(activity.movingTime)} label="time" />
-          <StatCard
-            value={`${Math.round(activity.totalElevationGain)}m`}
-            label="elevation"
-          />
-          {activity.averageHeartrate != null && (
+      {/* Desktop: Stats + Map side by side; Mobile: stacked */}
+      <div className="md:grid md:grid-cols-2 md:gap-5 md:items-start md:mb-5">
+        {/* Stats Grid — 3 cols mobile, 4 cols desktop */}
+        <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 p-5 mb-4 md:mb-0">
+          <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
+            <StatCard value={metersToKm(activity.distance)} label="km" />
+            <StatCard value={speedToPace(activity.averageSpeed)} label="min/km" />
+            <StatCard value={formatDuration(activity.movingTime)} label="time" />
             <StatCard
-              value={`${Math.round(activity.averageHeartrate)}`}
-              label="avg bpm"
+              value={`${Math.round(activity.totalElevationGain)}m`}
+              label="elevation"
             />
-          )}
-          {activity.averageCadence != null && (
-            <StatCard
-              value={`${Math.round(activity.averageCadence * 2)}`}
-              label="spm"
-            />
-          )}
-          {activity.calories != null && (
-            <StatCard value={`${Math.round(activity.calories)}`} label="cal" />
-          )}
+            {activity.averageHeartrate != null && (
+              <StatCard
+                value={`${Math.round(activity.averageHeartrate)}`}
+                label="avg bpm"
+              />
+            )}
+            {activity.averageCadence != null && (
+              <StatCard
+                value={`${Math.round(activity.averageCadence * 2)}`}
+                label="spm"
+              />
+            )}
+            {activity.calories != null && (
+              <StatCard value={`${Math.round(activity.calories)}`} label="cal" />
+            )}
+          </div>
         </div>
+
+        {/* Map Placeholder — beside stats on desktop, below on mobile */}
+        {hasMap && (
+          <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 p-5 mb-4 md:mb-0 flex flex-col items-center justify-center gap-3 min-h-[140px] md:min-h-full">
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#9CA3AF"
+              strokeWidth="1.5"
+            >
+              <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6-3V7m6 16l4.553-2.276A1 1 0 0021 19.382V8.618a1 1 0 00-.553-.894L15 5m0 12V5m0 0L9 7" />
+            </svg>
+            <div className="text-sm text-[#9CA3AF]">Map coming soon</div>
+          </div>
+        )}
       </div>
 
-      {/* Map Placeholder */}
-      {hasMap && (
-        <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 p-5 mb-4 flex flex-col items-center justify-center gap-3 min-h-[140px]">
-          <svg
-            width="32"
-            height="32"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#9CA3AF"
-            strokeWidth="1.5"
-          >
-            <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6-3V7m6 16l4.553-2.276A1 1 0 0021 19.382V8.618a1 1 0 00-.553-.894L15 5m0 12V5m0 0L9 7" />
-          </svg>
-          <div className="text-sm text-[#9CA3AF]">Map coming soon</div>
-        </div>
-      )}
-
-      {/* Splits Table */}
+      {/* Splits Table — full width */}
       {hasSplits && (
         <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 mb-4 overflow-hidden">
           <div className="px-5 py-4 border-b border-white/5">
@@ -165,6 +168,9 @@ export default function ActivityDetailPage({ params }: PageProps) {
                     Pace
                   </th>
                   <th className="px-5 py-3 text-right text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide">
+                    Time
+                  </th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide">
                     Elev
                   </th>
                 </tr>
@@ -184,6 +190,9 @@ export default function ActivityDetailPage({ params }: PageProps) {
                     <td className="px-5 py-3 text-right text-white font-mono">
                       {speedToPace(split.averageSpeed ?? 0)}
                     </td>
+                    <td className="px-5 py-3 text-right text-white font-mono">
+                      {formatDuration(split.movingTime ?? 0)}
+                    </td>
                     <td className="px-5 py-3 text-right text-[#9CA3AF] font-mono">
                       {split.elevationDifference != null
                         ? `${split.elevationDifference > 0 ? "+" : ""}${Math.round(split.elevationDifference)}m`
@@ -201,7 +210,7 @@ export default function ActivityDetailPage({ params }: PageProps) {
       <button
         onClick={handleAnalyzeRun}
         disabled={analyzing}
-        className="w-full py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transition-opacity"
+        className="w-full md:w-auto md:px-8 py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transition-opacity"
       >
         <svg
           width="16"

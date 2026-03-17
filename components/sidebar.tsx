@@ -58,43 +58,11 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside
-      style={{
-        width: "240px",
-        height: "100vh",
-        background: "#1A1A2A",
-        borderRight: "1px solid rgba(255,255,255,0.05)",
-        padding: "24px 16px",
-        display: "flex",
-        flexDirection: "column",
-        gap: "4px",
-        position: "sticky",
-        top: 0,
-      }}
-    >
+    <aside className="w-60 h-screen bg-[#1A1A2A] border-r border-white/5 px-4 py-6 flex flex-col gap-1 sticky top-0 flex-shrink-0">
       {/* Logo */}
-      <div
-        style={{
-          fontSize: "20px",
-          fontWeight: 800,
-          padding: "8px 12px",
-          marginBottom: "24px",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-        }}
-      >
-        <span
-          style={{
-            width: "10px",
-            height: "10px",
-            background: "#C8FC03",
-            borderRadius: "50%",
-            display: "inline-block",
-            flexShrink: 0,
-          }}
-        />
-        RunCoach
+      <div className="flex items-center gap-2.5 px-3 py-2 mb-6">
+        <span className="w-2.5 h-2.5 rounded-full bg-[#C8FC03] flex-shrink-0" />
+        <span className="text-xl font-extrabold text-white">RunCoach</span>
       </div>
 
       {/* Nav items */}
@@ -104,31 +72,12 @@ export function Sidebar() {
           <Link
             key={item.href}
             href={item.href}
-            style={{
-              padding: "10px 12px",
-              borderRadius: "10px",
-              fontSize: "14px",
-              fontWeight: 500,
-              color: isActive ? "#C8FC03" : "#9CA3AF",
-              background: isActive ? "rgba(200, 252, 3, 0.1)" : "transparent",
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              textDecoration: "none",
-              transition: "all 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              if (!isActive) {
-                (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.05)";
-                (e.currentTarget as HTMLAnchorElement).style.color = "#FFFFFF";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) {
-                (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
-                (e.currentTarget as HTMLAnchorElement).style.color = "#9CA3AF";
-              }
-            }}
+            className={[
+              "flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-medium transition-all duration-200 no-underline",
+              isActive
+                ? "bg-[#C8FC03]/10 text-[#C8FC03]"
+                : "text-[#9CA3AF] hover:bg-white/5 hover:text-white",
+            ].join(" ")}
           >
             {item.icon}
             {item.label}
@@ -137,32 +86,12 @@ export function Sidebar() {
       })}
 
       {/* Spacer */}
-      <div style={{ flex: 1 }} />
+      <div className="flex-1" />
 
       {/* Settings */}
       <Link
         href="/settings"
-        style={{
-          padding: "10px 12px",
-          borderRadius: "10px",
-          fontSize: "14px",
-          fontWeight: 500,
-          color: "#9CA3AF",
-          background: "transparent",
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          textDecoration: "none",
-          transition: "all 0.2s",
-        }}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLAnchorElement).style.background = "rgba(255,255,255,0.05)";
-          (e.currentTarget as HTMLAnchorElement).style.color = "#FFFFFF";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLAnchorElement).style.background = "transparent";
-          (e.currentTarget as HTMLAnchorElement).style.color = "#9CA3AF";
-        }}
+        className="flex items-center gap-3 px-3 py-2.5 rounded-[10px] text-sm font-medium text-[#9CA3AF] hover:bg-white/5 hover:text-white transition-all duration-200 no-underline"
       >
         <SettingsIcon />
         Settings

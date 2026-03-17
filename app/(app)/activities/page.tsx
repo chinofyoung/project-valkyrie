@@ -22,7 +22,7 @@ export default function ActivitiesPage() {
     : activities.filter((a: any) => RUN_TYPES.includes(a.type));
 
   return (
-    <div className="max-w-2xl mx-auto px-4 pb-8">
+    <div className="pb-8">
       {/* Header */}
       <div className="py-5">
         <div className="text-2xl font-bold text-white">

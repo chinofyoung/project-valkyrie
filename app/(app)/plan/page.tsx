@@ -116,21 +116,23 @@ function WeekSection({
             const typeStyle = workoutTypeStyle(workout.type);
             return (
               <li key={idx} className="flex items-start gap-4 px-5 py-4">
-                {/* Checkbox */}
+                {/* Checkbox — wrapped in a larger touch target */}
                 <button
                   onClick={() => onToggle(week.weekNumber, idx)}
-                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                    workout.completed
-                      ? "bg-[#C8FC03] border-[#C8FC03]"
-                      : "border-white/30 hover:border-[#C8FC03]"
-                  }`}
+                  className={`mt-0.5 flex-shrink-0 w-11 h-11 flex items-center justify-center -m-3 rounded-xl transition-colors`}
                   aria-label={workout.completed ? "Mark incomplete" : "Mark complete"}
                 >
-                  {workout.completed && (
-                    <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
+                  <span className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                    workout.completed
+                      ? "bg-[#C8FC03] border-[#C8FC03]"
+                      : "border-white/30"
+                  }`}>
+                    {workout.completed && (
+                      <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </span>
                 </button>
 
                 {/* Content */}
@@ -169,7 +171,7 @@ export default function PlanPage() {
   // Loading state
   if (plan === undefined) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+      <div className="flex items-center justify-center py-20">
         <div className="w-8 h-8 rounded-full border-2 border-[#C8FC03] border-t-transparent animate-spin" />
       </div>
     );
@@ -178,8 +180,8 @@ export default function PlanPage() {
   // Empty state — no active plan
   if (plan === null) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center px-4">
-        <div className="rounded-2xl border border-white/10 bg-[#1A1A2A] p-10 max-w-md w-full text-center">
+      <div className="flex items-center justify-center py-20 px-4">
+        <div className="rounded-2xl border border-white/10 bg-[#1A1A2A] p-8 max-w-md w-full text-center">
           <div className="w-14 h-14 rounded-full bg-[#C8FC03]/10 flex items-center justify-center mx-auto mb-5">
             <svg className="w-7 h-7 text-[#C8FC03]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -214,7 +216,7 @@ export default function PlanPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] px-4 py-8 max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto px-4 pb-8">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{plan.goal}</h1>

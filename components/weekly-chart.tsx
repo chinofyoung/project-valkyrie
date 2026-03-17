@@ -60,7 +60,7 @@ export function WeeklyChart({ activities }: WeeklyChartProps) {
       </div>
 
       {/* Bars */}
-      <div className="flex items-end gap-2" style={{ height: `${MAX_BAR_HEIGHT + 24}px` }}>
+      <div className="flex items-end gap-1 sm:gap-2" style={{ height: `${MAX_BAR_HEIGHT + 24}px` }}>
         {dailyDistances.map((distance, index) => {
           const haRun = distance > 0;
           const barHeight = haRun

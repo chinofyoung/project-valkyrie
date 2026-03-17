@@ -49,13 +49,27 @@ export function ActivityCard({ activity }: ActivityCardProps) {
       </div>
 
       {/* Stats */}
-      <div className="flex items-center gap-4 flex-shrink-0">
+      <div className="flex items-center gap-4 md:gap-8 flex-shrink-0">
+        <div className="text-right hidden md:block">
+          <div className="text-xs text-[#9CA3AF] uppercase tracking-wide">Time</div>
+          <div className="text-sm font-mono font-semibold text-white">
+            {formatDuration(activity.movingTime)}
+          </div>
+        </div>
         <div className="text-right hidden sm:block">
           <div className="text-xs text-[#9CA3AF] uppercase tracking-wide">Pace</div>
           <div className="text-sm font-mono font-semibold text-white">
             {speedToPace(activity.averageSpeed)}
           </div>
         </div>
+        {activity.averageHeartrate && (
+          <div className="text-right hidden md:block">
+            <div className="text-xs text-[#9CA3AF] uppercase tracking-wide">HR</div>
+            <div className="text-sm font-mono font-semibold text-white">
+              {Math.round(activity.averageHeartrate)}
+            </div>
+          </div>
+        )}
         <div className="text-right">
           <div className="text-base font-mono font-bold text-white">
             {metersToKm(activity.distance)}
