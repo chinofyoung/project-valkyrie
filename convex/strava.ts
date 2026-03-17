@@ -227,7 +227,7 @@ export const fetchActivitiesPage = internalAction({
       // Insert the batch — skips duplicates internally
       const { inserted, newActivities } = await ctx.runMutation(
         internal.activities.batchInsert,
-        { userId, activities: mapped }
+        { userId, activities: mapped as any }
       ) as { inserted: number; newActivities: Array<{ stravaId: number; _id: string; type: string }> };
 
       const totalSynced = syncedSoFar + inserted;

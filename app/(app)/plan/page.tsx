@@ -249,16 +249,17 @@ export default function PlanPage() {
     );
   }
 
-  // Active plan view
-  const { completed, total, pct } = getOverallProgress(plan.weeks as Week[]);
-  const currentWeekNumber = getCurrentWeekNumber(plan.startDate, plan.weeks as Week[]);
+  // Active plan view — plan is guaranteed non-null after the early returns above
+  const activePlan = plan!;
+  const { completed, total, pct } = getOverallProgress(activePlan.weeks as Week[]);
+  const currentWeekNumber = getCurrentWeekNumber(activePlan.startDate, activePlan.weeks as Week[]);
 
   function handleToggle(weekNumber: number, workoutIndex: number) {
-    toggleWorkout({ planId: plan._id, weekNumber, workoutIndex });
+    toggleWorkout({ planId: activePlan._id, weekNumber, workoutIndex });
   }
 
   async function handleAbandon() {
-    await updateStatus({ planId: plan._id, status: "abandoned" });
+    await updateStatus({ planId: activePlan._id, status: "abandoned" });
     setShowAbandonConfirm(false);
   }
 
@@ -266,9 +267,9 @@ export default function PlanPage() {
     <div className="pb-8">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white mb-1">{plan.goal}</h1>
+        <h1 className="text-2xl font-bold text-white mb-1">{activePlan.goal}</h1>
         <p className="text-[#9CA3AF] text-sm mb-5">
-          {formatDateRange(plan.startDate, plan.endDate)}
+          {formatDateRange(activePlan.startDate, activePlan.endDate)}
         </p>
 
         {/* Progress bar */}
@@ -290,12 +291,12 @@ export default function PlanPage() {
 
       {/* Week sections */}
       <div className="space-y-3 mb-10">
-        {(plan.weeks as Week[]).map((week) => (
+        {(activePlan.weeks as Week[]).map((week) => (
           <WeekSection
             key={week.weekNumber}
             week={week}
             defaultOpen={week.weekNumber === currentWeekNumber}
-            planId={plan._id}
+            planId={activePlan._id}
             onToggle={handleToggle}
           />
         ))}

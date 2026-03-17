@@ -117,6 +117,5 @@ export default defineSchema({
     startDate: v.number(),
     prRank: v.optional(v.number()),
   })
-    .index("by_userId_name", ["userId", "name"])
-    .index("by_userId_stravaActivityId_name", ["userId", "stravaActivityId", "name"]),
+    .index("by_userId_name", ["userId", "name"]),
 });

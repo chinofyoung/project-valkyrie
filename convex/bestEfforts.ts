@@ -58,19 +58,23 @@ export const batchUpsert = internalMutation({
   },
   handler: async (ctx, args) => {
     let inserted = 0;
+    let updated = 0;
 
     for (const effort of args.efforts) {
       const existing = await ctx.db
         .query("bestEfforts")
-        .withIndex("by_userId_stravaActivityId_name", (q) =>
-          q
-            .eq("userId", args.userId)
-            .eq("stravaActivityId", effort.stravaActivityId)
-            .eq("name", effort.name)
+        .withIndex("by_userId_name", (q) =>
+          q.eq("userId", args.userId).eq("name", effort.name)
         )
-        .unique();
+        .first();
 
-      if (existing) continue;
+      if (existing) {
+        if (effort.movingTime < existing.movingTime) {
+          await ctx.db.patch(existing._id, effort);
+          updated++;
+        }
+        continue;
+      }
 
       await ctx.db.insert("bestEfforts", {
         userId: args.userId,
@@ -79,6 +83,6 @@ export const batchUpsert = internalMutation({
       inserted++;
     }
 
-    return inserted;
+    return { inserted, updated };
   },
 });

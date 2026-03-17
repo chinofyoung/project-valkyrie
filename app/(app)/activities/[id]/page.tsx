@@ -210,7 +210,7 @@ export default function ActivityDetailPage({ params }: PageProps) {
                 </tr>
               </thead>
               <tbody>
-                {activity.splits.map((split: any, i: number) => (
+                {activity.splits?.map((split: any, i: number) => (
                   <tr
                     key={i}
                     className="border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"

@@ -115,7 +115,7 @@ export const analyzeRun = action({
   args: {
     activityId: v.id("activities"),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<string> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 

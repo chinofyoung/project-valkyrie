@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
+import { useUser, UserButton } from "@clerk/nextjs";
 // @ts-ignore
 import { useQuery, useAction } from "convex/react";
 // @ts-ignore
@@ -153,9 +153,7 @@ export default function DashboardPage() {
             </svg>
             {analyzing ? "Analyzing..." : "Analyze Progress"}
           </button>
-          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#C8FC03] to-[#22C55E] flex items-center justify-center font-bold text-base text-black select-none">
-            {initials || firstName[0]?.toUpperCase()}
-          </div>
+          <UserButton appearance={{ elements: { avatarBox: "w-11 h-11" } }} />
         </div>
       </div>
 
