@@ -12,7 +12,7 @@ import { ActivityCard } from "@/components/activity-card";
 import { WeeklyChart } from "@/components/weekly-chart";
 import { StatCard } from "@/components/stat-card";
 import { AiInsightCard } from "@/components/ai-insight-card";
-import { metersToKm, speedToPace, formatDuration, formatRelativeDate } from "@/lib/utils";
+import { metersToKm, speedToPace, speedToKmh, formatDuration, formatRelativeDate, isCyclingType, activityTypeLabel } from "@/lib/utils";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -186,7 +186,7 @@ export default function DashboardPage() {
             </svg>
             {analyzing ? "Analyzing..." : "Analyze Progress"}
           </button>
-          <UserButton appearance={{ elements: { avatarBox: "w-11 h-11" } }} />
+          <UserButton />
         </div>
       </div>
 
@@ -334,7 +334,7 @@ export default function DashboardPage() {
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-semibold uppercase tracking-widest text-[#9CA3AF]">
-                  Latest Run
+                  Latest Activity
                 </span>
                 <Link
                   href={`/activities/${latestRun._id}`}
@@ -344,11 +344,16 @@ export default function DashboardPage() {
                 </Link>
               </div>
               <div className="text-lg font-bold text-white mb-1">{latestRun.name}</div>
-              <div className="text-xs text-[#9CA3AF] mb-4">{formatRelativeDate(latestRun.startDate)}</div>
-              {/* 4 stats on desktop, 3 on mobile */}
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
+              <div className="text-xs text-[#9CA3AF] mb-4">
+                {activityTypeLabel(latestRun.type)} &middot; {formatRelativeDate(latestRun.startDate)}
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <StatCard value={metersToKm(latestRun.distance)} label="km" />
-                <StatCard value={speedToPace(latestRun.averageSpeed)} label="min/km" />
+                {isCyclingType(latestRun.type) ? (
+                  <StatCard value={speedToKmh(latestRun.averageSpeed)} label="km/h" />
+                ) : (
+                  <StatCard value={speedToPace(latestRun.averageSpeed)} label="min/km" />
+                )}
                 <StatCard value={formatDuration(latestRun.movingTime)} label="time" />
                 {latestRun.averageHeartrate != null && (
                   <StatCard value={`${Math.round(latestRun.averageHeartrate)}`} label="avg hr" />

@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { formatRelativeDate, metersToKm, speedToPace, formatDuration } from "@/lib/utils";
+import { formatRelativeDate, metersToKm, speedToPace, speedToKmh, formatDuration, isCyclingType, activityTypeLabel } from "@/lib/utils";
 
 interface Activity {
   _id: string;
   name: string;
+  type: string;
   startDate: number;
   distance: number;
   averageSpeed: number;
@@ -26,16 +27,7 @@ export function ActivityCard({ activity, hasAnalysis }: ActivityCardProps) {
     >
       {/* Activity icon */}
       <div className="w-11 h-11 rounded-xl bg-[#C8FC03]/10 flex items-center justify-center flex-shrink-0">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#C8FC03"
-          strokeWidth="2"
-        >
-          <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-        </svg>
+        <ActivityIcon type={activity.type} />
       </div>
 
       {/* Info */}
@@ -65,9 +57,13 @@ export function ActivityCard({ activity, hasAnalysis }: ActivityCardProps) {
           </div>
         </div>
         <div className="text-right hidden sm:block">
-          <div className="text-xs text-[#9CA3AF] uppercase tracking-wide">Pace</div>
+          <div className="text-xs text-[#9CA3AF] uppercase tracking-wide">
+            {isCyclingType(activity.type) ? "Speed" : "Pace"}
+          </div>
           <div className="text-sm font-mono font-semibold text-white">
-            {speedToPace(activity.averageSpeed)}
+            {isCyclingType(activity.type)
+              ? `${speedToKmh(activity.averageSpeed)} km/h`
+              : speedToPace(activity.averageSpeed)}
           </div>
         </div>
         {activity.averageHeartrate && (
@@ -86,5 +82,30 @@ export function ActivityCard({ activity, hasAnalysis }: ActivityCardProps) {
         </div>
       </div>
     </Link>
+  );
+}
+
+function ActivityIcon({ type }: { type: string }) {
+  if (isCyclingType(type)) {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8FC03" strokeWidth="2">
+        <circle cx="5.5" cy="17.5" r="3.5" />
+        <circle cx="18.5" cy="17.5" r="3.5" />
+        <path d="M15 6a1 1 0 100-2 1 1 0 000 2zM12 17.5V14l-3-3 4-3 2 3h3" />
+      </svg>
+    );
+  }
+  if (type === "Walk" || type === "Hike") {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8FC03" strokeWidth="2">
+        <path d="M13 4a1 1 0 100-2 1 1 0 000 2zM7 21l3-4 2.5 3L17 12M10 17l-2-4 5-3-1-3" />
+      </svg>
+    );
+  }
+  // Default: running icon (Run, TrailRun, etc.)
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C8FC03" strokeWidth="2">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
   );
 }

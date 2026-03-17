@@ -8,6 +8,7 @@ interface AiInsightCardProps {
   onAnalyze: () => void;
   onAddToChat?: (content: string) => void;
   label: string;
+  defaultExpanded?: boolean;
 }
 
 function renderContent(text: string) {
@@ -32,8 +33,8 @@ function renderContent(text: string) {
   });
 }
 
-export function AiInsightCard({ content, loading, onAnalyze, onAddToChat, label }: AiInsightCardProps) {
-  const [collapsed, setCollapsed] = useState(true);
+export function AiInsightCard({ content, loading, onAnalyze, onAddToChat, label, defaultExpanded }: AiInsightCardProps) {
+  const [collapsed, setCollapsed] = useState(!defaultExpanded);
 
   if (loading) {
     return (
@@ -116,7 +117,7 @@ export function AiInsightCard({ content, loading, onAnalyze, onAddToChat, label 
             <polyline points="6 9 12 15 18 9" />
           </svg>
         </button>
-        <div>{renderContent(collapsed ? content.split(/\s+/).slice(0, 50).join(" ") + "..." : content)}</div>
+        <div>{renderContent(collapsed ? content.split(/\s+/).slice(0, 120).join(" ") + "..." : content)}</div>
         {!collapsed && (
           <div className="flex items-center gap-4 mt-4">
             <button

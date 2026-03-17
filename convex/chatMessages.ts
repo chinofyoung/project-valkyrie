@@ -149,9 +149,12 @@ export const addToChat = mutation({
 
     if (!user) throw new Error("User not found");
 
+    // Insert as "assistant" so the typing indicator doesn't get stuck
+    // waiting for an AI reply. The analysis is AI-generated content that
+    // becomes part of the conversation context for future messages.
     return await ctx.db.insert("chatMessages", {
       userId: user._id,
-      role: "user",
+      role: "assistant",
       content: args.content,
       displayText: args.displayText,
       createdAt: Date.now(),

@@ -30,15 +30,15 @@ export default function ChatMessage({ role, content, displayText, createdAt }: C
   const isUser = role === "user";
 
   // Context message (analysis added to chat)
-  if (isUser && displayText) {
+  if (displayText) {
     return (
-      <div className="flex flex-col items-end gap-1">
+      <div className="flex flex-col items-start gap-1">
         <div
           className="max-w-[85%] px-4 py-2.5 text-sm leading-relaxed flex items-center gap-2"
           style={{
             background: "rgba(200,252,3,0.08)",
             border: "1px solid rgba(200,252,3,0.15)",
-            borderRadius: "16px 16px 4px 16px",
+            borderRadius: "16px 16px 16px 4px",
           }}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#C8FC03" strokeWidth="2">
@@ -46,7 +46,7 @@ export default function ChatMessage({ role, content, displayText, createdAt }: C
           </svg>
           <span className="text-white/60 italic text-xs">{displayText}</span>
         </div>
-        <span className="text-xs text-white/40 pr-1">{relativeTime(createdAt)}</span>
+        <span className="text-xs text-white/40 pl-1">{relativeTime(createdAt)}</span>
       </div>
     );
   }

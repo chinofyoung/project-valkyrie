@@ -7,7 +7,6 @@ export default function SignUpPage() {
         appearance={{
           elements: {
             rootBox: "mx-auto",
-            card: "bg-surface border border-border",
           },
         }}
       />

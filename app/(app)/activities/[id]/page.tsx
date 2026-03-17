@@ -9,11 +9,15 @@ import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { StatCard } from "@/components/stat-card";
 import { AiInsightCard } from "@/components/ai-insight-card";
+import { RouteMap } from "@/components/route-map";
 import {
   metersToKm,
   speedToPace,
+  speedToKmh,
   formatDuration,
   formatRelativeDate,
+  isCyclingType,
+  activityTypeLabel,
 } from "@/lib/utils";
 
 interface PageProps {
@@ -140,7 +144,7 @@ export default function ActivityDetailPage({ params }: PageProps) {
           {activity.name}
         </h1>
         <div className="text-sm text-[#9CA3AF] mt-1">
-          {formatDate(activity.startDate)}
+          {activityTypeLabel(activity.type)} &middot; {formatDate(activity.startDate)}
         </div>
       </div>
 
@@ -150,7 +154,11 @@ export default function ActivityDetailPage({ params }: PageProps) {
         <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 p-5 mb-4 md:mb-0">
           <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
             <StatCard value={metersToKm(activity.distance)} label="km" />
-            <StatCard value={speedToPace(activity.averageSpeed)} label="min/km" />
+            {isCyclingType(activity.type) ? (
+              <StatCard value={speedToKmh(activity.averageSpeed)} label="km/h" />
+            ) : (
+              <StatCard value={speedToPace(activity.averageSpeed)} label="min/km" />
+            )}
             <StatCard value={formatDuration(activity.movingTime)} label="time" />
             <StatCard
               value={`${Math.round(activity.totalElevationGain)}m`}
@@ -174,20 +182,13 @@ export default function ActivityDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Map Placeholder — beside stats on desktop, below on mobile */}
+        {/* Route Map — beside stats on desktop, below on mobile */}
         {hasMap && (
-          <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 p-5 mb-4 md:mb-0 flex flex-col items-center justify-center gap-3 min-h-[140px] md:min-h-full">
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#9CA3AF"
-              strokeWidth="1.5"
-            >
-              <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6-3V7m6 16l4.553-2.276A1 1 0 0021 19.382V8.618a1 1 0 00-.553-.894L15 5m0 12V5m0 0L9 7" />
-            </svg>
-            <div className="text-sm text-[#9CA3AF]">Map coming soon</div>
+          <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 mb-4 md:mb-0 overflow-hidden min-h-[200px] md:min-h-full">
+            <RouteMap
+              polyline={activity.map!.summaryPolyline!}
+              className="w-full h-full min-h-[200px]"
+            />
           </div>
         )}
       </div>
@@ -211,7 +212,7 @@ export default function ActivityDetailPage({ params }: PageProps) {
                     Distance
                   </th>
                   <th className="px-5 py-3 text-right text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide">
-                    Pace
+                    {isCyclingType(activity.type) ? "Speed" : "Pace"}
                   </th>
                   <th className="px-5 py-3 text-right text-xs font-semibold text-[#9CA3AF] uppercase tracking-wide">
                     Time
@@ -234,7 +235,9 @@ export default function ActivityDetailPage({ params }: PageProps) {
                       {metersToKm(split.distance)} km
                     </td>
                     <td className="px-5 py-3 text-right text-white font-mono">
-                      {speedToPace(split.averageSpeed ?? 0)}
+                      {isCyclingType(activity.type)
+                        ? `${speedToKmh(split.averageSpeed ?? 0)} km/h`
+                        : speedToPace(split.averageSpeed ?? 0)}
                     </td>
                     <td className="px-5 py-3 text-right text-white font-mono">
                       {formatDuration(split.movingTime ?? 0)}
@@ -268,7 +271,7 @@ export default function ActivityDetailPage({ params }: PageProps) {
         >
           <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
         </svg>
-        {analyzing ? "Analyzing..." : "Analyze Run"}
+        {analyzing ? "Analyzing..." : `Analyze ${activityTypeLabel(activity.type)}`}
       </button>
 
       {/* Error message */}
@@ -284,7 +287,8 @@ export default function ActivityDetailPage({ params }: PageProps) {
         loading={analyzing}
         onAnalyze={handleAnalyzeRun}
         onAddToChat={handleAddToChat}
-        label="Analyze Run"
+        label={`Analyze ${activityTypeLabel(activity?.type ?? "Run")}`}
+        defaultExpanded
       />
     </div>
   );

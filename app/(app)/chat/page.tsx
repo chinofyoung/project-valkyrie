@@ -35,6 +35,46 @@ function TypingIndicator() {
   );
 }
 
+const VISIBLE_COUNT = 5;
+
+function MessageList({ messages, isAiResponding }: { messages: any[]; isAiResponding: boolean | undefined }) {
+  const [expanded, setExpanded] = useState(false);
+  const hiddenCount = messages.length - VISIBLE_COUNT;
+  const hasHidden = hiddenCount > 0 && !expanded;
+  const displayed = hasHidden ? messages.slice(-VISIBLE_COUNT) : messages;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {hasHidden && (
+        <button
+          onClick={() => setExpanded(true)}
+          className="self-center px-4 py-2 rounded-xl text-xs font-medium text-[#9CA3AF] bg-white/5 border border-white/5 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          Show {hiddenCount} older message{hiddenCount !== 1 ? "s" : ""}
+        </button>
+      )}
+      {expanded && hiddenCount > 0 && (
+        <button
+          onClick={() => setExpanded(false)}
+          className="self-center px-4 py-2 rounded-xl text-xs font-medium text-[#9CA3AF] bg-white/5 border border-white/5 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          Hide older messages
+        </button>
+      )}
+      {displayed.map((msg: any) => (
+        <ChatMessage
+          key={msg._id}
+          role={msg.role}
+          content={msg.content}
+          displayText={msg.displayText}
+          createdAt={msg.createdAt}
+        />
+      ))}
+      {isAiResponding && <TypingIndicator />}
+    </div>
+  );
+}
+
 export default function ChatPage() {
   const messages = useQuery(api.chatMessages.list, {});
   const isAiResponding = useQuery(api.chatMessages.isAiResponding);
@@ -175,18 +215,7 @@ export default function ChatPage() {
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {messages.map((msg: any) => (
-              <ChatMessage
-                key={msg._id}
-                role={msg.role}
-                content={msg.content}
-                displayText={msg.displayText}
-                createdAt={msg.createdAt}
-              />
-            ))}
-            {isAiResponding && <TypingIndicator />}
-          </div>
+          <MessageList messages={messages} isAiResponding={isAiResponding} />
         )}
 
         {/* Error message */}

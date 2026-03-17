@@ -7,6 +7,35 @@ export function speedToPace(metersPerSecond: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+/** Convert m/s to km/h string like "28.5" */
+export function speedToKmh(metersPerSecond: number): string {
+  if (metersPerSecond <= 0) return "--";
+  return (metersPerSecond * 3.6).toFixed(1);
+}
+
+const CYCLING_TYPES = ["Ride", "VirtualRide", "MountainBikeRide", "GravelRide", "EBikeRide"];
+
+/** Check if an activity type is a cycling type */
+export function isCyclingType(type: string): boolean {
+  return CYCLING_TYPES.includes(type);
+}
+
+/** Get a human-readable label for an activity type */
+export function activityTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    Run: "Run",
+    TrailRun: "Trail Run",
+    Walk: "Walk",
+    Hike: "Hike",
+    Ride: "Ride",
+    VirtualRide: "Virtual Ride",
+    MountainBikeRide: "MTB Ride",
+    GravelRide: "Gravel Ride",
+    EBikeRide: "E-Bike Ride",
+  };
+  return labels[type] ?? type;
+}
+
 /** Format meters to km with 1 decimal */
 export function metersToKm(meters: number): string {
   return (meters / 1000).toFixed(1);

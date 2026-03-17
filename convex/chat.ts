@@ -10,9 +10,18 @@ import type { ActionCtx } from "./_generated/server";
 // Prompt constants
 // ---------------------------------------------------------------------------
 
-const BASE_COACHING_PROMPT = `You are an expert running coach with deep knowledge of exercise physiology, training periodization, and performance optimization. You have coached athletes at all levels, from beginners to competitive runners.
+const BASE_COACHING_PROMPT = `You are an expert endurance coach with deep knowledge of exercise physiology, training periodization, and performance optimization for running, cycling, walking, and hiking. You have coached athletes at all levels, from beginners to competitive athletes.
 
-Your coaching style is encouraging but honest — you celebrate progress while delivering straightforward feedback when improvements are needed. You are data-driven and always reference specific numbers from the athlete's data (paces, distances, heart rates, elevation) rather than speaking in generalities. Every observation you make is grounded in the actual numbers.
+Your coaching style is encouraging but honest — you celebrate progress while delivering straightforward feedback when improvements are needed. You are data-driven and always reference specific numbers from the athlete's data (paces, speeds, distances, heart rates, elevation) rather than speaking in generalities. Every observation you make is grounded in the actual numbers.
+
+IMPORTANT — Activity type distinction:
+- "Run" = road running. Use pace (min/km) as the primary metric.
+- "TrailRun" = trail running. Use pace (min/km) but factor in elevation heavily; slower paces are expected on technical/hilly terrain.
+- "Ride"/"VirtualRide"/"MountainBikeRide"/"GravelRide"/"EBikeRide" = cycling. Use speed (km/h) as the primary metric, NEVER pace. Cycling efforts are fundamentally different from running.
+- "Walk" = walking. Use pace (min/km) but recognize walking paces are naturally slower.
+- "Hike" = hiking. Similar to walking but factor in elevation gain/loss significantly.
+
+Never confuse cycling with running. Never report pace for cycling activities — always use speed in km/h. When analyzing mixed training, treat each activity type on its own terms.
 
 You understand training principles deeply: the importance of easy days and hard days, how periodization builds fitness over time, the role of recovery in adaptation, and how to spot signs of overtraining. You know that most aerobic improvement comes from easy, consistent mileage and that intensity should be introduced gradually.
 
@@ -22,9 +31,9 @@ You keep responses focused and practical. Athletes want insights they can apply 
 
 When the user asks you to create a training plan, include a JSON block in your response with this exact format:
 \`\`\`json
-{"trainingPlan": {"goal": "...", "weeks": [{"weekNumber": 1, "workouts": [{"day": "Monday", "description": "...", "type": "easy/tempo/interval/long/rest", "completed": false}]}]}}
+{"trainingPlan": {"goal": "...", "weeks": [{"weekNumber": 1, "workouts": [{"day": "Monday", "description": "...", "type": "easy/tempo/interval/long/rest/ride/walk", "completed": false}]}]}}
 \`\`\`
-Place this JSON block at the very end of your message, after your conversational explanation of the plan. Use workout types: "easy", "tempo", "interval", "long", or "rest".`;
+Place this JSON block at the very end of your message, after your conversational explanation of the plan. Use workout types: "easy", "tempo", "interval", "long", "rest", "ride", or "walk".`;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -40,6 +49,31 @@ function speedToPaceMinPerKm(speedMps: number): string {
   const minutes = Math.floor(secondsPerKm / 60);
   const seconds = Math.round(secondsPerKm % 60);
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function speedToKmh(speedMps: number): string {
+  if (!speedMps || speedMps <= 0) return "--";
+  return (speedMps * 3.6).toFixed(1);
+}
+
+const CYCLING_TYPES = ["Ride", "VirtualRide", "MountainBikeRide", "GravelRide", "EBikeRide"];
+
+function isCycling(type: string): boolean {
+  return CYCLING_TYPES.includes(type);
+}
+
+function formatSpeedMetric(type: string, speedMps: number): string {
+  if (isCycling(type)) return `${speedToKmh(speedMps)} km/h`;
+  return `${speedToPaceMinPerKm(speedMps)} min/km`;
+}
+
+function activityTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    Run: "Run", TrailRun: "Trail Run", Walk: "Walk", Hike: "Hike",
+    Ride: "Ride", VirtualRide: "Virtual Ride", MountainBikeRide: "MTB Ride",
+    GravelRide: "Gravel Ride", EBikeRide: "E-Bike Ride",
+  };
+  return labels[type] ?? type;
 }
 
 const COMPACT_THRESHOLD = 30;
@@ -117,22 +151,21 @@ export const sendMessage = action({
         { userId: user._id, since: thirtyDaysAgo, limit: 100 }
       );
 
-      // Compute stats
-      const totalDistance = recentActivities.reduce(
-        (sum: number, a: any) => sum + a.distance,
-        0
-      );
-      const runCount = recentActivities.length;
-      const speedValues = recentActivities
-        .filter((a: any) => a.averageSpeed > 0)
-        .map((a: any) => a.averageSpeed);
-      const avgPace =
-        speedValues.length > 0
-          ? speedToPaceMinPerKm(
-              speedValues.reduce((a: number, b: number) => a + b, 0) /
-                speedValues.length
-            )
-          : "--";
+      // Compute stats by type
+      const runTypeActivities = recentActivities.filter((a: any) => a.type === "Run" || a.type === "TrailRun");
+      const cycleTypeActivities = recentActivities.filter((a: any) => isCycling(a.type));
+
+      const totalRunDistance = runTypeActivities.reduce((sum: number, a: any) => sum + a.distance, 0);
+      const totalCycleDistance = cycleTypeActivities.reduce((sum: number, a: any) => sum + a.distance, 0);
+
+      const runSpeedValues = runTypeActivities.filter((a: any) => a.averageSpeed > 0).map((a: any) => a.averageSpeed);
+      const avgRunPace = runSpeedValues.length > 0
+        ? speedToPaceMinPerKm(runSpeedValues.reduce((a: number, b: number) => a + b, 0) / runSpeedValues.length)
+        : "--";
+      const cycleSpeedValues = cycleTypeActivities.filter((a: any) => a.averageSpeed > 0).map((a: any) => a.averageSpeed);
+      const avgCycleSpeed = cycleSpeedValues.length > 0
+        ? speedToKmh(cycleSpeedValues.reduce((a: number, b: number) => a + b, 0) / cycleSpeedValues.length)
+        : "--";
 
       // Most recent 5 activities
       const recentFive: any[] = await ctx.runQuery(
@@ -155,9 +188,9 @@ export const sendMessage = action({
       // Build context preamble
       const contextPreamble = `
 ATHLETE CONTEXT (last 30 days):
-- Total Distance: ${metersToKm(totalDistance)} km
-- Total Runs: ${runCount}
-- Average Pace: ${avgPace} min/km
+- Total Activities: ${recentActivities.length}
+${runTypeActivities.length > 0 ? `- Running: ${metersToKm(totalRunDistance)} km across ${runTypeActivities.length} run(s), avg pace ${avgRunPace} min/km` : "- Running: No runs"}
+${cycleTypeActivities.length > 0 ? `- Cycling: ${metersToKm(totalCycleDistance)} km across ${cycleTypeActivities.length} ride(s), avg speed ${avgCycleSpeed} km/h` : "- Cycling: No rides"}
 
 RECENT ACTIVITIES:
 ${
@@ -166,7 +199,7 @@ ${
     : recentFive
         .map(
           (a: any) =>
-            `- ${new Date(a.startDate).toLocaleDateString()}: ${a.name} — ${metersToKm(a.distance)} km @ ${speedToPaceMinPerKm(a.averageSpeed)} min/km`
+            `- ${new Date(a.startDate).toLocaleDateString()}: [${activityTypeLabel(a.type ?? "Run")}] ${a.name} — ${metersToKm(a.distance)} km @ ${formatSpeedMetric(a.type ?? "Run", a.averageSpeed)}`
         )
         .join("\n")
 }
