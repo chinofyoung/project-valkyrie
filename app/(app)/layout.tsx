@@ -25,7 +25,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, user, isAuthenticated, syncUser]);
 
-  if (!isLoaded || !isAuthenticated) {
+  if (!isLoaded) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-text-secondary">Loading...</div>
