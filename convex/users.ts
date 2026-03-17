@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+
 export const syncUser = mutation({
   args: {
     clerkId: v.string(),
@@ -48,5 +49,34 @@ export const currentUser = query({
         q.eq("clerkId", identity.subject)
       )
       .unique();
+  },
+});
+
+export const connectStrava = mutation({
+  args: {
+    clerkId: v.string(),
+    accessToken: v.string(),
+    refreshToken: v.string(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    await ctx.db.patch(user._id, {
+      stravaConnected: true,
+      stravaTokens: {
+        accessToken: args.accessToken,
+        refreshToken: args.refreshToken,
+        expiresAt: args.expiresAt,
+      },
+    });
   },
 });
