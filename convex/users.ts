@@ -61,6 +61,34 @@ export const getById = internalQuery({
   },
 });
 
+// Called from the Strava OAuth callback API route (server-side, already authed via Clerk).
+// No Convex auth check needed — the route handler verifies the user.
+export const connectStravaInternal = mutation({
+  args: {
+    clerkId: v.string(),
+    accessToken: v.string(),
+    refreshToken: v.string(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    await ctx.db.patch(user._id, {
+      stravaConnected: true,
+      stravaTokens: {
+        accessToken: args.accessToken,
+        refreshToken: args.refreshToken,
+        expiresAt: args.expiresAt,
+      },
+    });
+  },
+});
+
 export const connectStrava = mutation({
   args: {
     clerkId: v.string(),

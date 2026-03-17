@@ -8,59 +8,59 @@ import { api } from "@/convex/_generated/api";
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
 export async function GET(req: NextRequest) {
-  const { userId, getToken } = await auth();
-  if (!userId) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return new Response("Unauthorized", { status: 401 });
+    }
 
-  // Authenticate ConvexHttpClient with Clerk JWT
-  const token = await getToken({ template: "convex" });
-  if (token) {
-    convex.setAuth(token);
-  }
+    const code = req.nextUrl.searchParams.get("code");
+    const state = req.nextUrl.searchParams.get("state");
+    const cookieStore = await cookies();
+    const storedState = cookieStore.get("strava_oauth_state")?.value;
 
-  const code = req.nextUrl.searchParams.get("code");
-  const state = req.nextUrl.searchParams.get("state");
-  const cookieStore = await cookies();
-  const storedState = cookieStore.get("strava_oauth_state")?.value;
+    // CSRF validation — reject if state is missing or doesn't match the cookie
+    if (!state || !storedState || state !== storedState) {
+      return new Response("Invalid state parameter", { status: 403 });
+    }
 
-  // CSRF validation — reject if state is missing or doesn't match the cookie
-  if (!state || !storedState || state !== storedState) {
-    return new Response("Invalid state parameter", { status: 403 });
-  }
+    // Clear state cookie immediately after validation to prevent replay
+    cookieStore.delete("strava_oauth_state");
 
-  // Clear state cookie immediately after validation to prevent replay
-  cookieStore.delete("strava_oauth_state");
+    if (!code) {
+      return NextResponse.redirect(new URL("/profile?error=strava_auth_failed", req.url));
+    }
 
-  if (!code) {
+    // Exchange code for tokens
+    const tokenRes = await fetch("https://www.strava.com/oauth/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        client_id: process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID,
+        client_secret: process.env.STRAVA_CLIENT_SECRET,
+        code,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenRes.ok) {
+      return NextResponse.redirect(new URL("/profile?error=strava_auth_failed", req.url));
+    }
+
+    const tokens = await tokenRes.json();
+
+    // Store tokens in Convex — uses connectStravaInternal which skips Convex auth
+    // since this route is already authenticated via Clerk middleware
+    await convex.mutation(api.users.connectStravaInternal, {
+      clerkId: userId,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token,
+      expiresAt: tokens.expires_at,
+    });
+
+    return NextResponse.redirect(new URL("/profile?strava=connected", req.url));
+  } catch (error) {
+    console.error("Strava callback error:", error);
     return NextResponse.redirect(new URL("/profile?error=strava_auth_failed", req.url));
   }
-
-  // Exchange code for tokens
-  const tokenRes = await fetch("https://www.strava.com/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID,
-      client_secret: process.env.STRAVA_CLIENT_SECRET,
-      code,
-      grant_type: "authorization_code",
-    }),
-  });
-
-  if (!tokenRes.ok) {
-    return NextResponse.redirect(new URL("/profile?error=strava_auth_failed", req.url));
-  }
-
-  const tokens = await tokenRes.json();
-
-  // Store tokens in Convex
-  await convex.mutation(api.users.connectStrava, {
-    clerkId: userId,
-    accessToken: tokens.access_token,
-    refreshToken: tokens.refresh_token,
-    expiresAt: tokens.expires_at,
-  });
-
-  return NextResponse.redirect(new URL("/profile?strava=connected", req.url));
 }
