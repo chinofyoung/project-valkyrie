@@ -1,14 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 // @ts-ignore
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 // @ts-ignore
 import { api } from "@/convex/_generated/api";
 import { ActivityCard } from "@/components/activity-card";
 import { WeeklyChart } from "@/components/weekly-chart";
 import { StatCard } from "@/components/stat-card";
+import { AiInsightCard } from "@/components/ai-insight-card";
 import { metersToKm, speedToPace, formatDuration, formatRelativeDate } from "@/lib/utils";
 
 function getGreeting(): string {
@@ -20,7 +22,26 @@ function getGreeting(): string {
 
 export default function DashboardPage() {
   const { user } = useUser();
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+
   const activities = useQuery(api.activities.list, { limit: 20 }) ?? [];
+  // @ts-ignore
+  const latestInsight = useQuery(api.aiAnalyses.getLatestInsight);
+  // @ts-ignore
+  const analyzeProgress = useAction(api.ai.analyzeProgress);
+
+  async function handleAnalyzeProgress() {
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      await analyzeProgress({});
+    } catch (err: any) {
+      setAnalyzeError(err?.message ?? "Analysis failed. Please try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   const firstName = user?.firstName ?? user?.username ?? "Athlete";
   const initials = (user?.firstName?.[0] ?? "") + (user?.lastName?.[0] ?? "");
@@ -57,8 +78,9 @@ export default function DashboardPage() {
           Sync Strava
         </button>
         <button
-          disabled
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-white/5 border border-white/5 text-white font-semibold text-sm cursor-not-allowed opacity-50"
+          onClick={handleAnalyzeProgress}
+          disabled={analyzing}
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-white/5 border border-white/5 text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
         >
           <svg
             width="16"
@@ -70,7 +92,7 @@ export default function DashboardPage() {
           >
             <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
           </svg>
-          Analyze Progress
+          {analyzing ? "Analyzing..." : "Analyze Progress"}
         </button>
       </div>
 
@@ -139,25 +161,21 @@ export default function DashboardPage() {
       {/* Weekly Chart */}
       {activities.length > 0 && <WeeklyChart activities={activities} />}
 
-      {/* AI Insight Placeholder */}
-      <div
-        className="rounded-2xl border border-[#C8FC03]/20 p-5 mb-4 relative overflow-hidden"
-        style={{ background: "#1A1A2A" }}
-      >
-        {/* Top accent line */}
-        <div
-          className="absolute top-0 left-0 right-0 h-0.5"
-          style={{ background: "linear-gradient(90deg, #C8FC03, transparent)" }}
+      {/* Error message */}
+      {analyzeError && (
+        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          {analyzeError}
+        </div>
+      )}
+
+      {/* AI Insight Card */}
+      <div className="mb-4">
+        <AiInsightCard
+          content={latestInsight?.content ?? null}
+          loading={analyzing}
+          onAnalyze={handleAnalyzeProgress}
+          label="Analyze Progress"
         />
-        <div className="inline-flex items-center gap-1.5 bg-[#C8FC03]/10 text-[#C8FC03] text-[11px] font-semibold px-2.5 py-1 rounded-full mb-3">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          AI Coach Insight
-        </div>
-        <div className="text-sm text-white/70 leading-relaxed">
-          AI insights will appear here after analysis.
-        </div>
       </div>
 
       {/* Recent Activities */}

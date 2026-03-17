@@ -1,12 +1,13 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 // @ts-ignore
-import { useQuery } from "convex/react";
+import { useQuery, useAction } from "convex/react";
 // @ts-ignore
 import { api } from "@/convex/_generated/api";
 import { StatCard } from "@/components/stat-card";
+import { AiInsightCard } from "@/components/ai-insight-card";
 import {
   metersToKm,
   speedToPace,
@@ -29,9 +30,28 @@ function formatDate(timestamp: number): string {
 
 export default function ActivityDetailPage({ params }: PageProps) {
   const { id } = use(params);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   // @ts-ignore
   const activity = useQuery(api.activities.getById, { id });
+  // @ts-ignore
+  const existingAnalysis = useQuery(api.aiAnalyses.getForActivity, { activityId: id });
+  // @ts-ignore
+  const analyzeRun = useAction(api.ai.analyzeRun);
+
+  async function handleAnalyzeRun() {
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      // @ts-ignore
+      await analyzeRun({ activityId: id });
+    } catch (err: any) {
+      setAnalyzeError(err?.message ?? "Analysis failed. Please try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   if (activity === undefined) {
     return (
@@ -179,8 +199,9 @@ export default function ActivityDetailPage({ params }: PageProps) {
 
       {/* Analyze Run Button */}
       <button
-        disabled
-        className="w-full py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm mb-4 cursor-not-allowed opacity-50 flex items-center justify-center gap-2"
+        onClick={handleAnalyzeRun}
+        disabled={analyzing}
+        className="w-full py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transition-opacity"
       >
         <svg
           width="16"
@@ -192,29 +213,23 @@ export default function ActivityDetailPage({ params }: PageProps) {
         >
           <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
         </svg>
-        Analyze Run
+        {analyzing ? "Analyzing..." : "Analyze Run"}
       </button>
 
-      {/* AI Analysis Placeholder */}
-      <div
-        className="rounded-2xl border border-[#C8FC03]/20 p-5 relative overflow-hidden"
-        style={{ background: "#1A1A2A" }}
-      >
-        {/* Top accent line */}
-        <div
-          className="absolute top-0 left-0 right-0 h-0.5"
-          style={{ background: "linear-gradient(90deg, #C8FC03, transparent)" }}
-        />
-        <div className="inline-flex items-center gap-1.5 bg-[#C8FC03]/10 text-[#C8FC03] text-[11px] font-semibold px-2.5 py-1 rounded-full mb-3">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          AI Coach
+      {/* Error message */}
+      {analyzeError && (
+        <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+          {analyzeError}
         </div>
-        <div className="text-sm text-white/70 leading-relaxed">
-          Run analysis will appear here after clicking Analyze Run.
-        </div>
-      </div>
+      )}
+
+      {/* AI Analysis Card */}
+      <AiInsightCard
+        content={existingAnalysis?.content ?? null}
+        loading={analyzing}
+        onAnalyze={handleAnalyzeRun}
+        label="Analyze Run"
+      />
     </div>
   );
 }
