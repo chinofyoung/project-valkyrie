@@ -77,7 +77,7 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {convexUser?.stravaConnected ? (
+        {convexUser?.stravaConnected || justConnected ? (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               {/* Connected indicator */}
