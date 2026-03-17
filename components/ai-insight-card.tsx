@@ -6,7 +6,7 @@ interface AiInsightCardProps {
   content: string | null;
   loading: boolean;
   onAnalyze: () => void;
-  onAddToChat?: (content: string) => void;
+  onAddToChat?: (content: string) => void | Promise<void>;
   label: string;
   defaultExpanded?: boolean;
 }
@@ -35,6 +35,7 @@ function renderContent(text: string) {
 
 export function AiInsightCard({ content, loading, onAnalyze, onAddToChat, label, defaultExpanded }: AiInsightCardProps) {
   const [collapsed, setCollapsed] = useState(!defaultExpanded);
+  const [addingToChat, setAddingToChat] = useState(false);
 
   if (loading) {
     return (
@@ -119,19 +120,36 @@ export function AiInsightCard({ content, loading, onAnalyze, onAddToChat, label,
         </button>
         <div>{renderContent(collapsed ? content.split(/\s+/).slice(0, 120).join(" ") + "..." : content)}</div>
         {!collapsed && (
-          <div className="flex items-center gap-4 mt-4">
+          <div className="flex items-center gap-3 mt-4">
             <button
               onClick={onAnalyze}
-              className="text-xs text-[#9CA3AF] hover:text-[#C8FC03] transition-colors underline underline-offset-2"
+              disabled={loading}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/5 border border-white/5 text-[#9CA3AF] hover:text-white hover:bg-white/10 active:scale-95 active:bg-white/15 transition-all duration-100 disabled:opacity-50"
             >
+              <svg className={loading ? "animate-spin" : ""} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
               Re-analyze
             </button>
             {onAddToChat && content && (
               <button
-                onClick={() => onAddToChat(content)}
-                className="text-xs text-[#9CA3AF] hover:text-[#C8FC03] transition-colors underline underline-offset-2"
+                onClick={async () => {
+                  setAddingToChat(true);
+                  try { await onAddToChat(content); } finally { setAddingToChat(false); }
+                }}
+                disabled={addingToChat}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#C8FC03]/10 border border-[#C8FC03]/20 text-[#C8FC03] hover:bg-[#C8FC03]/20 active:scale-95 active:bg-[#C8FC03]/30 transition-all duration-100 disabled:opacity-50"
               >
-                Add to Chat
+                {addingToChat ? (
+                  <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  </svg>
+                )}
+                {addingToChat ? "Adding..." : "Add to Chat"}
               </button>
             )}
           </div>

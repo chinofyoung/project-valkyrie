@@ -48,7 +48,7 @@ function MessageList({ messages, isAiResponding }: { messages: any[]; isAiRespon
       {hasHidden && (
         <button
           onClick={() => setExpanded(true)}
-          className="self-center px-4 py-2 rounded-xl text-xs font-medium text-[#9CA3AF] bg-white/5 border border-white/5 hover:text-white hover:bg-white/10 transition-colors"
+          className="self-center px-4 py-2 rounded-xl text-xs font-medium text-[#9CA3AF] bg-white/5 border border-white/5 hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-100"
         >
           Show {hiddenCount} older message{hiddenCount !== 1 ? "s" : ""}
         </button>
@@ -56,7 +56,7 @@ function MessageList({ messages, isAiResponding }: { messages: any[]; isAiRespon
       {expanded && hiddenCount > 0 && (
         <button
           onClick={() => setExpanded(false)}
-          className="self-center px-4 py-2 rounded-xl text-xs font-medium text-[#9CA3AF] bg-white/5 border border-white/5 hover:text-white hover:bg-white/10 transition-colors"
+          className="self-center px-4 py-2 rounded-xl text-xs font-medium text-[#9CA3AF] bg-white/5 border border-white/5 hover:text-white hover:bg-white/10 active:scale-95 transition-all duration-100"
         >
           Hide older messages
         </button>

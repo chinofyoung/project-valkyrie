@@ -169,7 +169,7 @@ export default function DashboardPage() {
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm disabled:opacity-50"
+            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm disabled:opacity-50 active:scale-95 transition-transform duration-100"
           >
             <svg className={syncing ? "animate-spin" : ""} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -179,7 +179,7 @@ export default function DashboardPage() {
           <button
             onClick={handleAnalyzeProgress}
             disabled={analyzing}
-            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+            className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform duration-100"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -195,7 +195,7 @@ export default function DashboardPage() {
         <button
           onClick={handleSync}
           disabled={syncing}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm disabled:opacity-50"
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm disabled:opacity-50 active:scale-95 transition-transform duration-100"
         >
           <svg
             className={syncing ? "animate-spin" : ""}
@@ -213,9 +213,10 @@ export default function DashboardPage() {
         <button
           onClick={handleAnalyzeProgress}
           disabled={analyzing}
-          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-white/5 border border-white/5 text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+          className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl bg-white/5 border border-white/5 text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform duration-100"
         >
           <svg
+            className={analyzing ? "animate-spin" : ""}
             width="16"
             height="16"
             viewBox="0 0 24 24"

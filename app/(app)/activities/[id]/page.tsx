@@ -259,9 +259,10 @@ export default function ActivityDetailPage({ params }: PageProps) {
       <button
         onClick={handleAnalyzeRun}
         disabled={analyzing}
-        className="w-full md:w-auto md:px-8 py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed transition-opacity"
+        className="w-full md:w-auto md:px-8 py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed active:scale-95 transition-transform duration-100"
       >
         <svg
+          className={analyzing ? "animate-spin" : ""}
           width="16"
           height="16"
           viewBox="0 0 24 24"

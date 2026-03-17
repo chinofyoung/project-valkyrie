@@ -23,7 +23,7 @@ export function ActivityCard({ activity, hasAnalysis }: ActivityCardProps) {
   return (
     <Link
       href={`/activities/${activity._id}`}
-      className="flex items-center gap-4 py-3.5 border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors -mx-2 px-2 rounded-lg"
+      className="flex items-center gap-4 py-3.5 border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] active:bg-white/[0.06] active:scale-[0.98] transition-all duration-100 -mx-2 px-2 rounded-lg"
     >
       {/* Activity icon */}
       <div className="w-11 h-11 rounded-xl bg-[#C8FC03]/10 flex items-center justify-center flex-shrink-0">

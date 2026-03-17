@@ -47,7 +47,7 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
       <button
         type="submit"
         disabled={disabled || !value.trim()}
-        className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full disabled:opacity-50 transition-opacity"
+        className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full disabled:opacity-50 active:scale-90 transition-transform duration-100"
         style={{ background: "#C8FC03" }}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="#000">

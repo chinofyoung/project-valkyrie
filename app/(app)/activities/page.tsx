@@ -64,7 +64,7 @@ export default function ActivitiesPage() {
           <button
             key={key}
             onClick={() => handleTabChange(key)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            className={`px-4 py-2 rounded-xl text-sm font-semibold active:scale-95 transition-all duration-100 ${
               activeTab === key
                 ? "bg-[#C8FC03] text-black"
                 : "bg-white/5 border border-white/5 text-[#9CA3AF] hover:text-white"
@@ -148,7 +148,7 @@ export default function ActivitiesPage() {
               <button
                 onClick={() => setPage((p) => p - 1)}
                 disabled={page === 0}
-                className="px-4 py-2 rounded-xl text-sm font-semibold bg-white/5 border border-white/5 text-[#9CA3AF] hover:text-white transition-colors disabled:opacity-30 disabled:hover:text-[#9CA3AF]"
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-white/5 border border-white/5 text-[#9CA3AF] hover:text-white active:scale-95 transition-all duration-100 disabled:opacity-30 disabled:hover:text-[#9CA3AF]"
               >
                 Previous
               </button>
@@ -158,7 +158,7 @@ export default function ActivitiesPage() {
               <button
                 onClick={() => setPage((p) => p + 1)}
                 disabled={page >= totalPages - 1}
-                className="px-4 py-2 rounded-xl text-sm font-semibold bg-white/5 border border-white/5 text-[#9CA3AF] hover:text-white transition-colors disabled:opacity-30 disabled:hover:text-[#9CA3AF]"
+                className="px-4 py-2 rounded-xl text-sm font-semibold bg-white/5 border border-white/5 text-[#9CA3AF] hover:text-white active:scale-95 transition-all duration-100 disabled:opacity-30 disabled:hover:text-[#9CA3AF]"
               >
                 Next
               </button>
