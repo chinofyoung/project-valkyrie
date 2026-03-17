@@ -10,6 +10,7 @@ const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 export async function GET(req: NextRequest) {
   try {
     const { userId } = await auth();
+    console.log("[strava-callback] userId:", userId);
     if (!userId) {
       return new Response("Unauthorized", { status: 401 });
     }
@@ -19,19 +20,23 @@ export async function GET(req: NextRequest) {
     const cookieStore = await cookies();
     const storedState = cookieStore.get("strava_oauth_state")?.value;
 
+    console.log("[strava-callback] state match:", { state: state?.slice(0, 8), storedState: storedState?.slice(0, 8) });
+
     // CSRF validation — reject if state is missing or doesn't match the cookie
     if (!state || !storedState || state !== storedState) {
-      return new Response("Invalid state parameter", { status: 403 });
+      console.error("[strava-callback] CSRF validation failed — state mismatch");
+      return NextResponse.redirect(new URL("/profile?error=csrf_failed", req.url));
     }
 
     // Clear state cookie immediately after validation to prevent replay
     cookieStore.delete("strava_oauth_state");
 
     if (!code) {
-      return NextResponse.redirect(new URL("/profile?error=strava_auth_failed", req.url));
+      return NextResponse.redirect(new URL("/profile?error=no_code", req.url));
     }
 
     // Exchange code for tokens
+    console.log("[strava-callback] Exchanging code for tokens...");
     const tokenRes = await fetch("https://www.strava.com/oauth/token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -44,10 +49,13 @@ export async function GET(req: NextRequest) {
     });
 
     if (!tokenRes.ok) {
-      return NextResponse.redirect(new URL("/profile?error=strava_auth_failed", req.url));
+      const errorBody = await tokenRes.text();
+      console.error("[strava-callback] Token exchange failed:", tokenRes.status, errorBody);
+      return NextResponse.redirect(new URL("/profile?error=token_exchange_failed", req.url));
     }
 
     const tokens = await tokenRes.json();
+    console.log("[strava-callback] Tokens received, storing in Convex...");
 
     // Store tokens in Convex — uses connectStravaInternal which skips Convex auth
     // since this route is already authenticated via Clerk middleware
@@ -58,9 +66,10 @@ export async function GET(req: NextRequest) {
       expiresAt: tokens.expires_at,
     });
 
+    console.log("[strava-callback] Success!");
     return NextResponse.redirect(new URL("/profile?strava=connected", req.url));
   } catch (error) {
-    console.error("Strava callback error:", error);
+    console.error("[strava-callback] Error:", error);
     return NextResponse.redirect(new URL("/profile?error=strava_auth_failed", req.url));
   }
 }
