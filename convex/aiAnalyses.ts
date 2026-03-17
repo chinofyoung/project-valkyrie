@@ -48,6 +48,27 @@ export const getLatestInsight = query({
   },
 });
 
+export const getLatestProgressOverview = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) return null;
+
+    return await ctx.db
+      .query("aiAnalyses")
+      .withIndex("by_userId_activityId", (q) => q.eq("userId", user._id))
+      .order("desc")
+      .filter((q) => q.eq(q.field("type"), "progress_overview"))
+      .first();
+  },
+});
+
 export const countSince = internalQuery({
   args: {
     userId: v.id("users"),

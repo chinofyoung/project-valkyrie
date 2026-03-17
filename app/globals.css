@@ -32,3 +32,19 @@ body {
   color: var(--text-primary);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+button:not(:disabled),
+[role="button"]:not(:disabled),
+a,
+input[type="submit"],
+input[type="button"],
+select,
+summary,
+[onclick] {
+  cursor: pointer;
+}
+
+@keyframes slide {
+  0%   { transform: translateX(-200%); }
+  100% { transform: translateX(400%); }
+}

@@ -105,4 +105,18 @@ export default defineSchema({
     ),
     createdAt: v.number(),
   }).index("by_userId_status", ["userId", "status"]),
+
+  bestEfforts: defineTable({
+    userId: v.id("users"),
+    stravaActivityId: v.number(),
+    activityId: v.id("activities"),
+    name: v.string(),
+    distance: v.number(),
+    elapsedTime: v.number(),
+    movingTime: v.number(),
+    startDate: v.number(),
+    prRank: v.optional(v.number()),
+  })
+    .index("by_userId_name", ["userId", "name"])
+    .index("by_userId_stravaActivityId_name", ["userId", "stravaActivityId", "name"]),
 });

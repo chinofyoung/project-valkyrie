@@ -171,8 +171,55 @@ export default function PlanPage() {
   // Loading state
   if (plan === undefined) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 rounded-full border-2 border-[#C8FC03] border-t-transparent animate-spin" />
+      <div className="pb-8">
+        {/* Header skeleton */}
+        <div className="mb-8">
+          {/* Goal title */}
+          <div className="bg-white/5 animate-pulse rounded h-7 w-2/3 mb-2" />
+          {/* Date range */}
+          <div className="bg-white/5 animate-pulse rounded h-4 w-1/3 mb-5" />
+          {/* Progress bar */}
+          <div className="flex items-center gap-3 mb-2">
+            <div className="flex-1 h-2 rounded-full bg-white/5 animate-pulse" />
+            <div className="bg-white/5 animate-pulse rounded h-4 w-10" />
+          </div>
+          {/* "X of Y workouts" label */}
+          <div className="bg-white/5 animate-pulse rounded h-3 w-1/4" />
+        </div>
+
+        {/* Week section skeletons */}
+        <div className="space-y-3">
+          {[4, 3, 4].map((rowCount, weekIdx) => (
+            <div
+              key={weekIdx}
+              className="rounded-2xl border border-white/5 bg-[#1A1A2A] overflow-hidden"
+            >
+              {/* Week header row */}
+              <div className="flex items-center justify-between px-5 py-4">
+                <div className="bg-white/5 animate-pulse rounded h-5 w-20" />
+                <div className="bg-white/5 animate-pulse rounded h-4 w-24" />
+              </div>
+
+              {/* Workout row placeholders */}
+              <ul className="divide-y divide-white/5 border-t border-white/5">
+                {Array.from({ length: rowCount }).map((_, rowIdx) => (
+                  <li key={rowIdx} className="flex items-start gap-4 px-5 py-4">
+                    {/* Checkbox placeholder */}
+                    <div className="bg-white/5 animate-pulse rounded w-5 h-5 mt-0.5 flex-shrink-0" />
+                    {/* Text lines */}
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="bg-white/5 animate-pulse rounded h-4 w-16" />
+                        <div className="bg-white/5 animate-pulse rounded-full h-4 w-14" />
+                      </div>
+                      <div className="bg-white/5 animate-pulse rounded h-3 w-3/4" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

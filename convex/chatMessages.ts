@@ -65,7 +65,14 @@ export const isAiResponding = query({
       .order("desc")
       .first();
 
-    return lastMessage != null && lastMessage.role === "user";
+    // Consider AI as responding only if the last message is from the user
+    // and was sent within the last 2 minutes (prevents permanent stuck state)
+    const TWO_MINUTES = 2 * 60 * 1000;
+    return (
+      lastMessage != null &&
+      lastMessage.role === "user" &&
+      Date.now() - lastMessage.createdAt < TWO_MINUTES
+    );
   },
 });
 

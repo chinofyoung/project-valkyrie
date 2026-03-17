@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 interface AiInsightCardProps {
   content: string | null;
   loading: boolean;
@@ -30,6 +32,8 @@ function renderContent(text: string) {
 }
 
 export function AiInsightCard({ content, loading, onAnalyze, label }: AiInsightCardProps) {
+  const [collapsed, setCollapsed] = useState(true);
+
   if (loading) {
     return (
       <div
@@ -86,19 +90,40 @@ export function AiInsightCard({ content, loading, onAnalyze, label }: AiInsightC
           className="absolute top-0 left-0 right-0 h-0.5"
           style={{ background: "linear-gradient(90deg, #C8FC03, transparent)" }}
         />
-        <div className="inline-flex items-center gap-1.5 bg-[#C8FC03]/10 text-[#C8FC03] text-[11px] font-semibold px-2.5 py-1 rounded-full mb-3">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          AI Coach
-        </div>
-        <div>{renderContent(content)}</div>
         <button
-          onClick={onAnalyze}
-          className="mt-4 text-xs text-[#9CA3AF] hover:text-[#C8FC03] transition-colors underline underline-offset-2"
+          onClick={() => setCollapsed((prev) => !prev)}
+          className="flex items-center justify-between w-full mb-3 group"
         >
-          Re-analyze
+          <div className="inline-flex items-center gap-1.5 bg-[#C8FC03]/10 text-[#C8FC03] text-[11px] font-semibold px-2.5 py-1 rounded-full">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+            AI Coach
+          </div>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-[#C8FC03]/60 group-hover:text-[#C8FC03] transition-all duration-300"
+            style={{ transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+          >
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
         </button>
+        <div>{renderContent(collapsed ? content.split(/\s+/).slice(0, 50).join(" ") + "..." : content)}</div>
+        {!collapsed && (
+          <button
+            onClick={onAnalyze}
+            className="mt-4 text-xs text-[#9CA3AF] hover:text-[#C8FC03] transition-colors underline underline-offset-2"
+          >
+            Re-analyze
+          </button>
+        )}
       </div>
     );
   }

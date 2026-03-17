@@ -56,12 +56,46 @@ export default function ActivityDetailPage({ params }: PageProps) {
   if (activity === undefined) {
     return (
       <div className="pb-8">
+        {/* Header skeleton */}
         <div className="py-5">
-          <BackButton />
+          <div className="bg-white/5 animate-pulse rounded h-4 w-20 mb-6" />
+          <div className="bg-white/5 animate-pulse rounded h-7 w-2/3 mb-2" />
+          <div className="bg-white/5 animate-pulse rounded h-4 w-40" />
         </div>
-        <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 p-8 text-center">
-          <div className="text-sm text-[#9CA3AF]">Loading activity...</div>
+
+        {/* Stats grid skeleton */}
+        <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 p-5 mb-4">
+          <div className="grid grid-cols-3 md:grid-cols-4 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-2">
+                <div className="bg-white/5 animate-pulse rounded h-7 w-3/4" />
+                <div className="bg-white/5 animate-pulse rounded h-3 w-1/2" />
+              </div>
+            ))}
+          </div>
         </div>
+
+        {/* Splits table skeleton */}
+        <div className="bg-[#1A1A2A] rounded-2xl border border-white/5 mb-4 overflow-hidden">
+          <div className="px-5 py-4 border-b border-white/5">
+            <div className="bg-white/5 animate-pulse rounded h-3 w-12" />
+          </div>
+          <div className="px-5 py-3 flex gap-4 border-b border-white/5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="bg-white/5 animate-pulse rounded h-3 flex-1" />
+            ))}
+          </div>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="px-5 py-3 flex gap-4 border-b border-white/5 last:border-b-0">
+              {Array.from({ length: 5 }).map((_, j) => (
+                <div key={j} className="bg-white/5 animate-pulse rounded h-4 flex-1" />
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Button skeleton */}
+        <div className="bg-white/5 animate-pulse rounded-xl h-12 w-full md:w-36" />
       </div>
     );
   }

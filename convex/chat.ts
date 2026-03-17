@@ -97,51 +97,54 @@ export const sendMessage = action({
       content: args.message,
     });
 
-    // Gather context: last 50 chat messages
-    const chatHistory: any[] = await ctx.runQuery(
-      // @ts-ignore
-      api.chatMessages.list,
-      { limit: 50 }
-    );
+    // Outer try/catch ensures an assistant message is always inserted so the
+    // typing indicator never gets permanently stuck in the UI.
+    try {
+      // Gather context: last 50 chat messages
+      const chatHistory: any[] = await ctx.runQuery(
+        // @ts-ignore
+        api.chatMessages.list,
+        { limit: 50 }
+      );
 
-    // Gather context: activities in last 30 days
-    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
-    const recentActivities: any[] = await ctx.runQuery(
-      internal.activities.listForUserSince,
-      { userId: user._id, since: thirtyDaysAgo, limit: 100 }
-    );
+      // Gather context: activities in last 30 days
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+      const recentActivities: any[] = await ctx.runQuery(
+        internal.activities.listForUserSince,
+        { userId: user._id, since: thirtyDaysAgo, limit: 100 }
+      );
 
-    // Compute stats
-    const totalDistance = recentActivities.reduce(
-      (sum: number, a: any) => sum + a.distance,
-      0
-    );
-    const runCount = recentActivities.length;
-    const speedValues = recentActivities
-      .filter((a: any) => a.averageSpeed > 0)
-      .map((a: any) => a.averageSpeed);
-    const avgPace =
-      speedValues.length > 0
-        ? speedToPaceMinPerKm(
-            speedValues.reduce((a: number, b: number) => a + b, 0) /
-              speedValues.length
-          )
-        : "--";
+      // Compute stats
+      const totalDistance = recentActivities.reduce(
+        (sum: number, a: any) => sum + a.distance,
+        0
+      );
+      const runCount = recentActivities.length;
+      const speedValues = recentActivities
+        .filter((a: any) => a.averageSpeed > 0)
+        .map((a: any) => a.averageSpeed);
+      const avgPace =
+        speedValues.length > 0
+          ? speedToPaceMinPerKm(
+              speedValues.reduce((a: number, b: number) => a + b, 0) /
+                speedValues.length
+            )
+          : "--";
 
-    // Most recent 5 activities
-    const recentFive: any[] = await ctx.runQuery(
-      internal.activities.listRecentForUser,
-      { userId: user._id, limit: 5 }
-    );
+      // Most recent 5 activities
+      const recentFive: any[] = await ctx.runQuery(
+        internal.activities.listRecentForUser,
+        { userId: user._id, limit: 5 }
+      );
 
-    // Active training plan
-    const activePlan: any = await ctx.runQuery(
-      internal.trainingPlans.getActive,
-      { userId: user._id }
-    );
+      // Active training plan
+      const activePlan: any = await ctx.runQuery(
+        internal.trainingPlans.getActive,
+        { userId: user._id }
+      );
 
-    // Build context preamble
-    const contextPreamble = `
+      // Build context preamble
+      const contextPreamble = `
 ATHLETE CONTEXT (last 30 days):
 - Total Distance: ${metersToKm(totalDistance)} km
 - Total Runs: ${runCount}
@@ -170,73 +173,95 @@ ${
 }
 `.trim();
 
-    const systemPrompt = `${BASE_COACHING_PROMPT}\n\n${contextPreamble}`;
+      const systemPrompt = `${BASE_COACHING_PROMPT}\n\n${contextPreamble}`;
 
-    // Build messages for Anthropic from conversation history
-    // The current user message is already at the end of chatHistory
-    const conversationMessages = chatHistory.map((msg: any) => ({
-      role: msg.role as "user" | "assistant",
-      content: msg.content,
-    }));
+      // Build messages for Anthropic from conversation history
+      // The current user message is already at the end of chatHistory
+      const conversationMessages = chatHistory.map((msg: any) => ({
+        role: msg.role as "user" | "assistant",
+        content: msg.content,
+      }));
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: conversationMessages,
-    });
-
-    const responseText = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => (block as { type: "text"; text: string }).text)
-      .join("\n");
-
-    // Detect and extract a training plan JSON block if present
-    const jsonBlockRegex = /```json\s*(\{[\s\S]*?"trainingPlan"[\s\S]*?\})\s*```/;
-    const jsonMatch = responseText.match(jsonBlockRegex);
-
-    let cleanedResponse = responseText;
-    if (jsonMatch) {
-      try {
-        const parsed = JSON.parse(jsonMatch[1]);
-        const planData = parsed.trainingPlan;
-
-        if (planData && planData.goal && Array.isArray(planData.weeks)) {
-          // Calculate startDate as next Monday
-          const now = new Date();
-          const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-          const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
-          const startDate = new Date(now);
-          startDate.setDate(now.getDate() + daysUntilMonday);
-          startDate.setHours(0, 0, 0, 0);
-
-          const endDate = new Date(startDate);
-          endDate.setDate(startDate.getDate() + planData.weeks.length * 7);
-
-          await ctx.runMutation(internal.trainingPlans.create, {
-            userId: user._id,
-            goal: planData.goal,
-            startDate: startDate.getTime(),
-            endDate: endDate.getTime(),
-            weeks: planData.weeks,
-            status: "active",
-          });
-        }
-      } catch {
-        // If parsing fails, we just store the full response as-is
+      const apiKey = process.env.ANTHROPIC_API_KEY;
+      if (!apiKey) {
+        throw new Error("ANTHROPIC_API_KEY environment variable is not set");
       }
 
-      // Strip the JSON block from the stored message so the user only sees the coaching text
-      cleanedResponse = responseText.replace(jsonBlockRegex, "").trim();
+      let responseText: string;
+      try {
+        const client = new Anthropic({ apiKey });
+        const response = await client.messages.create({
+          model: "claude-sonnet-4-6",
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: conversationMessages,
+        });
+
+        responseText = response.content
+          .filter((block) => block.type === "text")
+          .map((block) => (block as { type: "text"; text: string }).text)
+          .join("\n");
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        throw new Error(`AI coach is unavailable: ${message}`);
+      }
+
+      // Detect and extract a training plan JSON block if present
+      const jsonBlockRegex = /```json\s*(\{[\s\S]*?"trainingPlan"[\s\S]*?\})\s*```/;
+      const jsonMatch = responseText.match(jsonBlockRegex);
+
+      let cleanedResponse = responseText;
+      if (jsonMatch) {
+        try {
+          const parsed = JSON.parse(jsonMatch[1]);
+          const planData = parsed.trainingPlan;
+
+          if (planData && planData.goal && Array.isArray(planData.weeks)) {
+            // Calculate startDate as next Monday
+            const now = new Date();
+            const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+            const daysUntilMonday = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+            const startDate = new Date(now);
+            startDate.setDate(now.getDate() + daysUntilMonday);
+            startDate.setHours(0, 0, 0, 0);
+
+            const endDate = new Date(startDate);
+            endDate.setDate(startDate.getDate() + planData.weeks.length * 7);
+
+            await ctx.runMutation(internal.trainingPlans.create, {
+              userId: user._id,
+              goal: planData.goal,
+              startDate: startDate.getTime(),
+              endDate: endDate.getTime(),
+              weeks: planData.weeks,
+              status: "active",
+            });
+          }
+        } catch {
+          // If parsing fails, we just store the full response as-is
+        }
+
+        // Strip the JSON block from the stored message so the user only sees the coaching text
+        cleanedResponse = responseText.replace(jsonBlockRegex, "").trim();
+      }
+
+      await ctx.runMutation(internal.chatMessages.insert, {
+        userId: user._id,
+        role: "assistant",
+        content: cleanedResponse,
+      });
+
+      return cleanedResponse;
+    } catch (err) {
+      // Fallback: always insert an assistant message so isAiResponding unblocks.
+      const errorMsg = err instanceof Error ? err.message : "Something went wrong";
+      await ctx.runMutation(internal.chatMessages.insert, {
+        userId: user._id,
+        role: "assistant",
+        content: `Sorry, I couldn't respond right now. (${errorMsg})`,
+      });
+      // Re-throw so the client's catch block can also surface the error banner.
+      throw err;
     }
-
-    await ctx.runMutation(internal.chatMessages.insert, {
-      userId: user._id,
-      role: "assistant",
-      content: cleanedResponse,
-    });
-
-    return cleanedResponse;
   },
 });

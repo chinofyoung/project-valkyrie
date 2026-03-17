@@ -82,6 +82,21 @@ export const listRecentForUser = internalQuery({
   },
 });
 
+export const listRunActivitiesForUser = internalQuery({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const activities = await ctx.db
+      .query("activities")
+      .withIndex("by_userId_startDate", (q) => q.eq("userId", args.userId))
+      .order("desc")
+      .collect();
+
+    return activities.filter((a) => a.type === "Run" || a.type === "TrailRun");
+  },
+});
+
 export const batchInsert = internalMutation({
   args: {
     userId: v.id("users"),
@@ -112,6 +127,7 @@ export const batchInsert = internalMutation({
   },
   handler: async (ctx, args) => {
     let inserted = 0;
+    const newActivities: Array<{ stravaId: number; _id: string; type: string }> = [];
 
     for (const activity of args.activities) {
       const existing = await ctx.db
@@ -123,13 +139,14 @@ export const batchInsert = internalMutation({
 
       if (existing) continue;
 
-      await ctx.db.insert("activities", {
+      const id = await ctx.db.insert("activities", {
         userId: args.userId,
         ...activity,
       });
       inserted++;
+      newActivities.push({ stravaId: activity.stravaId, _id: id, type: activity.type });
     }
 
-    return inserted;
+    return { inserted, newActivities };
   },
 });

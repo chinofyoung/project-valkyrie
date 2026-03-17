@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "run-p dev:next dev:convex",
-    "dev:next": "next dev",
-    "dev:convex": "convex dev",
+    "dev": "npm-run-all --parallel -l dev:backend dev:frontend",
+    "dev:backend": "convex dev",
+    "dev:frontend": "next dev --port 3000",
+    "predev": "convex dev --until-success",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 3000",
     "lint": "eslint"
   },
   "dependencies": {

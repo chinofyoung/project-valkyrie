@@ -17,8 +17,35 @@ export default function ProfilePage() {
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-text-secondary">Loading...</div>
+      <div className="space-y-6 pb-8">
+        <div className="h-8 w-24 bg-white/5 animate-pulse rounded" />
+
+        {/* User info card skeleton */}
+        <div className="bg-[#1A1A2A] rounded-2xl p-6 border border-white/5">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-full bg-white/5 animate-pulse shrink-0" />
+            <div className="flex-1 space-y-2 min-w-0">
+              <div className="h-5 w-36 bg-white/5 animate-pulse rounded" />
+              <div className="h-4 w-52 bg-white/5 animate-pulse rounded" />
+            </div>
+            <div className="w-8 h-8 rounded-full bg-white/5 animate-pulse shrink-0" />
+          </div>
+        </div>
+
+        {/* Strava connection card skeleton */}
+        <div className="bg-[#1A1A2A] rounded-2xl p-6 border border-white/5 space-y-4">
+          <div className="h-5 w-40 bg-white/5 animate-pulse rounded" />
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-44 bg-white/5 animate-pulse rounded-full" />
+          </div>
+        </div>
+
+        {/* Danger zone skeleton */}
+        <div className="bg-[#1A1A2A] rounded-2xl p-6 border border-white/5 space-y-4">
+          <div className="h-5 w-28 bg-white/5 animate-pulse rounded" />
+          <div className="h-4 w-72 bg-white/5 animate-pulse rounded" />
+          <div className="h-9 w-36 bg-white/5 animate-pulse rounded-xl" />
+        </div>
       </div>
     );
   }
@@ -34,7 +61,7 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="max-w-xl mx-auto space-y-6 pb-8">
+    <div className="space-y-6 pb-8">
       <h1 className="text-2xl font-bold text-text-primary">Profile</h1>
 
       {/* User info card */}

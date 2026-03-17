@@ -225,10 +225,10 @@ export const fetchActivitiesPage = internalAction({
       });
 
       // Insert the batch — skips duplicates internally
-      const inserted: number = await ctx.runMutation(
+      const { inserted, newActivities } = await ctx.runMutation(
         internal.activities.batchInsert,
         { userId, activities: mapped }
-      );
+      ) as { inserted: number; newActivities: Array<{ stravaId: number; _id: string; type: string }> };
 
       const totalSynced = syncedSoFar + inserted;
 
@@ -238,6 +238,19 @@ export const fetchActivitiesPage = internalAction({
         status: "syncing",
         syncedActivities: totalSynced,
       });
+
+      // Schedule best-efforts detail fetch for newly inserted run-type activities
+      const RUN_TYPES = ["Run", "TrailRun"];
+      const runActivities = newActivities
+        .filter((a: any) => RUN_TYPES.includes(a.type))
+        .map((a: any) => ({ stravaId: a.stravaId, activityId: a._id }));
+
+      if (runActivities.length > 0) {
+        await ctx.scheduler.runAfter(0, internal.strava.fetchBestEfforts, {
+          userId,
+          activities: runActivities,
+        });
+      }
 
       if (stravaActivities.length === 200) {
         // More pages may exist — schedule the next one
@@ -267,6 +280,151 @@ export const fetchActivitiesPage = internalAction({
         status: "error",
         lastError: err?.message ?? "Unknown error during sync",
       });
+    }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// syncBestEfforts
+// Client-callable action to backfill best efforts for existing activities
+// that were synced before the best efforts feature was added.
+// ---------------------------------------------------------------------------
+export const syncBestEfforts = action({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    // @ts-ignore
+    const user = await ctx.runQuery(api.users.currentUser, {});
+    if (!user) throw new Error("User not found");
+
+    // Get all run-type activities for this user
+    const activities: any[] = await ctx.runQuery(
+      internal.activities.listRunActivitiesForUser,
+      { userId: user._id }
+    );
+
+    if (activities.length === 0) return { scheduled: 0 };
+
+    // Get existing best effort activity IDs to skip
+    const existingEfforts: any[] = await ctx.runQuery(
+      internal.bestEfforts.listStravaActivityIds,
+      { userId: user._id }
+    );
+    const existingSet = new Set(existingEfforts.map((e: any) => e.stravaActivityId));
+
+    // Filter to activities that don't have best efforts yet
+    const toFetch = activities
+      .filter((a: any) => !existingSet.has(a.stravaId))
+      .map((a: any) => ({ stravaId: a.stravaId, activityId: a._id }));
+
+    if (toFetch.length === 0) return { scheduled: 0 };
+
+    await ctx.scheduler.runAfter(0, internal.strava.fetchBestEfforts, {
+      userId: user._id,
+      activities: toFetch,
+    });
+
+    return { scheduled: toFetch.length };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// fetchBestEfforts
+// Self-scheduling action that fetches detailed activity data from Strava
+// to extract best efforts. Processes up to 80 activities per batch.
+// ---------------------------------------------------------------------------
+const BEST_EFFORTS_BATCH_SIZE = 80;
+const DETAIL_FETCH_DELAY_MS = 200;
+const RATE_LIMIT_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+
+export const fetchBestEfforts = internalAction({
+  args: {
+    userId: v.id("users"),
+    activities: v.array(
+      v.object({
+        stravaId: v.number(),
+        activityId: v.id("activities"),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { userId, activities } = args;
+
+    // Take up to BEST_EFFORTS_BATCH_SIZE for this batch
+    const batch = activities.slice(0, BEST_EFFORTS_BATCH_SIZE);
+    const remaining = activities.slice(BEST_EFFORTS_BATCH_SIZE);
+
+    try {
+      const accessToken = await ctx.runAction(
+        internal.strava.refreshTokenIfNeeded,
+        { userId }
+      );
+
+      for (let i = 0; i < batch.length; i++) {
+        const { stravaId, activityId } = batch[i];
+        try {
+          const url = `https://www.strava.com/api/v3/activities/${stravaId}?include_all_efforts=true`;
+          const resp = await fetch(url, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+
+          if (resp.status === 429) {
+            // Rate limited — re-schedule remaining activities with cooldown
+            const remainingFromHere = batch.slice(i).concat(remaining);
+            await ctx.scheduler.runAfter(
+              RATE_LIMIT_COOLDOWN_MS,
+              internal.strava.fetchBestEfforts,
+              { userId, activities: remainingFromHere }
+            );
+            return;
+          }
+
+          if (!resp.ok) {
+            console.warn(`Failed to fetch detail for activity ${stravaId}: ${resp.status}`);
+            continue;
+          }
+
+          const detail = await resp.json();
+          const bestEfforts: any[] = detail.best_efforts ?? [];
+
+          if (bestEfforts.length > 0) {
+            const efforts = bestEfforts.map((e: any) => ({
+              stravaActivityId: stravaId,
+              activityId,
+              name: e.name,
+              distance: e.distance,
+              elapsedTime: e.elapsed_time,
+              movingTime: e.moving_time,
+              startDate: new Date(detail.start_date).getTime(),
+              ...(e.pr_rank != null ? { prRank: e.pr_rank } : {}),
+            }));
+
+            await ctx.runMutation(internal.bestEfforts.batchUpsert, {
+              userId,
+              efforts,
+            });
+          }
+
+          // Small delay between API calls
+          if (DETAIL_FETCH_DELAY_MS > 0) {
+            await new Promise((r) => setTimeout(r, DETAIL_FETCH_DELAY_MS));
+          }
+        } catch (err: any) {
+          console.warn(`Error fetching best efforts for activity ${stravaId}:`, err?.message);
+        }
+      }
+
+      // Schedule next batch if more activities remain
+      if (remaining.length > 0) {
+        await ctx.scheduler.runAfter(
+          RATE_LIMIT_COOLDOWN_MS,
+          internal.strava.fetchBestEfforts,
+          { userId, activities: remaining }
+        );
+      }
+    } catch (err: any) {
+      console.error("fetchBestEfforts batch failed:", err?.message);
     }
   },
 });

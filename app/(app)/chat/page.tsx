@@ -80,9 +80,51 @@ export default function ChatPage() {
       {/* Messages area */}
       <div className="px-4 py-4 pb-2">
         {messages == null ? (
-          // Loading state
-          <div className="flex items-center justify-center py-12">
-            <span className="text-white/40 text-sm">Loading...</span>
+          // Loading state — skeleton chat bubbles
+          <div className="flex flex-col gap-3">
+            {/* Assistant bubble (left-aligned, wide) */}
+            <div className="flex flex-col items-start gap-1">
+              <div
+                className="w-[65%] px-4 py-3"
+                style={{
+                  background: "#1A1A2A",
+                  borderLeft: "2px solid rgba(255,255,255,0.08)",
+                  borderRadius: "16px 16px 16px 4px",
+                }}
+              >
+                <div className="bg-white/5 animate-pulse rounded h-3 w-full mb-2" />
+                <div className="bg-white/5 animate-pulse rounded h-3 w-4/5" />
+              </div>
+            </div>
+
+            {/* User bubble (right-aligned, short) */}
+            <div className="flex flex-col items-end gap-1">
+              <div
+                className="w-[35%] px-4 py-3"
+                style={{
+                  borderRadius: "16px 16px 4px 16px",
+                  background: "rgba(200,252,3,0.08)",
+                  border: "1px solid rgba(200,252,3,0.15)",
+                }}
+              >
+                <div className="bg-white/5 animate-pulse rounded h-3 w-full" />
+              </div>
+            </div>
+
+            {/* Assistant bubble (left-aligned, medium) */}
+            <div className="flex flex-col items-start gap-1">
+              <div
+                className="w-[55%] px-4 py-3"
+                style={{
+                  background: "#1A1A2A",
+                  borderLeft: "2px solid rgba(255,255,255,0.08)",
+                  borderRadius: "16px 16px 16px 4px",
+                }}
+              >
+                <div className="bg-white/5 animate-pulse rounded h-3 w-full mb-2" />
+                <div className="bg-white/5 animate-pulse rounded h-3 w-3/5" />
+              </div>
+            </div>
           </div>
         ) : messages.length === 0 && !isAiResponding ? (
           // Empty / welcome state
