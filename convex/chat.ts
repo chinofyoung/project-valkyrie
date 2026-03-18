@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { action, internalAction } from "./_generated/server";
+import { ALLOWED_EMAILS } from "./constants";
 // @ts-ignore
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
@@ -91,6 +92,9 @@ export const sendMessage = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    if (!ALLOWED_EMAILS.includes((identity.email as string)?.toLowerCase())) {
+      throw new Error("Unauthorized");
+    }
 
     // @ts-ignore
     const user = await ctx.runQuery(api.users.currentUser, {});
@@ -294,10 +298,16 @@ ${
         content: cleanedResponse,
       });
 
-      // Schedule background compaction
-      await ctx.scheduler.runAfter(0, internal.chat.compactHistory, {
-        userId: user._id,
-      });
+      // Only schedule compaction when message count exceeds threshold
+      const messageCount = await ctx.runQuery(
+        internal.chatMessages.countForUser,
+        { userId: user._id }
+      );
+      if (messageCount > COMPACT_THRESHOLD) {
+        await ctx.scheduler.runAfter(0, internal.chat.compactHistory, {
+          userId: user._id,
+        });
+      }
 
       return cleanedResponse;
     } catch (err) {
@@ -318,10 +328,20 @@ export const compactNow = action({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    if (!ALLOWED_EMAILS.includes((identity.email as string)?.toLowerCase())) {
+      throw new Error("Unauthorized");
+    }
 
     // @ts-ignore
     const user = await ctx.runQuery(api.users.currentUser, {});
     if (!user) throw new Error("User not found");
+
+    const creditStatus = await checkCreditLimit(ctx, user._id);
+    if (!creditStatus.allowed) {
+      throw new Error(
+        `Daily credit limit reached (${creditStatus.used}/${creditStatus.effectiveLimit}). Resets daily.`
+      );
+    }
 
     const userId = user._id;
 

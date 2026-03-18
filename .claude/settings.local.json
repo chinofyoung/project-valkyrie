@@ -3,7 +3,10 @@
     "allow": [
       "Bash(find:*)",
       "Bash(npm install:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(npx convex:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

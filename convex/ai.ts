@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { action, internalMutation } from "./_generated/server";
+import { ALLOWED_EMAILS } from "./constants";
 // @ts-ignore
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
@@ -165,6 +166,9 @@ export const analyzeRun = action({
   handler: async (ctx, args): Promise<string> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    if (!ALLOWED_EMAILS.includes((identity.email as string)?.toLowerCase())) {
+      throw new Error("Unauthorized");
+    }
 
     // @ts-ignore
     const user = await ctx.runQuery(api.users.currentUser, {});
@@ -280,6 +284,9 @@ export const analyzeProgress = action({
   handler: async (ctx): Promise<string> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    if (!ALLOWED_EMAILS.includes((identity.email as string)?.toLowerCase())) {
+      throw new Error("Unauthorized");
+    }
 
     // @ts-ignore
     const user = await ctx.runQuery(api.users.currentUser, {});

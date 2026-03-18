@@ -1,6 +1,7 @@
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { ALLOWED_CREDIT_LIMITS, DEFAULT_CREDIT_LIMIT, SAFETY_CAP, WARNING_THRESHOLD } from "./constants";
+import { ALLOWED_EMAILS } from "./constants";
 
 
 export const syncUser = mutation({
@@ -13,6 +14,10 @@ export const syncUser = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+
+    if (!ALLOWED_EMAILS.includes(args.email.toLowerCase())) {
+      throw new Error("Unauthorized email");
+    }
 
     const existing = await ctx.db
       .query("users")
@@ -76,6 +81,10 @@ export const connectStravaInternal = mutation({
       .query("users")
       .withIndex("by_clerkId", (q) => q.eq("clerkId", args.clerkId))
       .unique();
+
+    if (user && !ALLOWED_EMAILS.includes(user.email.toLowerCase())) {
+      throw new Error("Unauthorized");
+    }
 
     // User record may not exist yet if syncUser hasn't fired —
     // create it now so the Strava connection isn't lost.
