@@ -5,6 +5,7 @@ import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
+import { checkCreditLimit } from "./creditLimit";
 
 // ---------------------------------------------------------------------------
 // Prompt constants
@@ -80,32 +81,6 @@ const COMPACT_THRESHOLD = 30;
 const KEEP_RECENT = 20;
 
 // ---------------------------------------------------------------------------
-// Rate limit helper (analyses + assistant chat messages, max 20/day)
-// ---------------------------------------------------------------------------
-
-async function checkCombinedRateLimit(
-  ctx: ActionCtx,
-  userId: Id<"users">
-): Promise<boolean> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const todayTimestamp = startOfDay.getTime();
-
-  const [analysesCount, chatCount] = await Promise.all([
-    ctx.runQuery(internal.aiAnalyses.countSince, {
-      userId,
-      since: todayTimestamp,
-    }),
-    ctx.runQuery(internal.chatMessages.countAssistantSince, {
-      userId,
-      since: todayTimestamp,
-    }),
-  ]);
-
-  return (analysesCount as number) + (chatCount as number) < 20;
-}
-
-// ---------------------------------------------------------------------------
 // sendMessage — client-callable action
 // ---------------------------------------------------------------------------
 
@@ -122,9 +97,11 @@ export const sendMessage = action({
     if (!user) throw new Error("User not found");
 
     // Rate limit check
-    const withinLimit = await checkCombinedRateLimit(ctx, user._id);
-    if (!withinLimit) {
-      throw new Error("Rate limit exceeded: maximum 20 AI interactions per day");
+    const creditStatus = await checkCreditLimit(ctx, user._id);
+    if (!creditStatus.allowed) {
+      throw new Error(
+        `Daily credit limit reached (${creditStatus.used}/${creditStatus.effectiveLimit}). Resets daily.`
+      );
     }
 
     // Insert the user's message

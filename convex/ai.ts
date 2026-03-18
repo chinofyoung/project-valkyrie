@@ -5,6 +5,7 @@ import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
+import { checkCreditLimit } from "./creditLimit";
 
 // ---------------------------------------------------------------------------
 // Prompt constants
@@ -131,22 +132,6 @@ function activityTypeLabel(type: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Rate limit helper
-// Returns true if the user is under their daily analysis limit (20/day)
-// ---------------------------------------------------------------------------
-
-async function checkRateLimit(ctx: ActionCtx, userId: Id<"users">): Promise<boolean> {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-  const todayTimestamp = startOfDay.getTime();
-  const analyses = await ctx.runQuery(internal.aiAnalyses.countSince, {
-    userId,
-    since: todayTimestamp,
-  });
-  return analyses < 20;
-}
-
-// ---------------------------------------------------------------------------
 // insertAnalysis — internal mutation to persist an AI analysis
 // ---------------------------------------------------------------------------
 
@@ -185,8 +170,12 @@ export const analyzeRun = action({
     const user = await ctx.runQuery(api.users.currentUser, {});
     if (!user) throw new Error("User not found");
 
-    const withinLimit = await checkRateLimit(ctx, user._id);
-    if (!withinLimit) throw new Error("Rate limit exceeded: maximum 20 analyses per day");
+    const creditStatus = await checkCreditLimit(ctx, user._id);
+    if (!creditStatus.allowed) {
+      throw new Error(
+        `Daily credit limit reached (${creditStatus.used}/${creditStatus.effectiveLimit}). Resets daily.`
+      );
+    }
 
     // Fetch the target activity
     // @ts-ignore
@@ -296,8 +285,12 @@ export const analyzeProgress = action({
     const user = await ctx.runQuery(api.users.currentUser, {});
     if (!user) throw new Error("User not found");
 
-    const withinLimit = await checkRateLimit(ctx, user._id);
-    if (!withinLimit) throw new Error("Rate limit exceeded: maximum 20 analyses per day");
+    const creditStatus = await checkCreditLimit(ctx, user._id);
+    if (!creditStatus.allowed) {
+      throw new Error(
+        `Daily credit limit reached (${creditStatus.used}/${creditStatus.effectiveLimit}). Resets daily.`
+      );
+    }
 
     // Fetch last 90 days of activities (use a large limit)
     // @ts-ignore
