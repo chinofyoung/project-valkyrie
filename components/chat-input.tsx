@@ -5,15 +5,16 @@ import { useState } from "react";
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled: boolean;
+  limitReached?: boolean;
 }
 
-export default function ChatInput({ onSend, disabled }: ChatInputProps) {
+export default function ChatInput({ onSend, disabled, limitReached }: ChatInputProps) {
   const [value, setValue] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = value.trim();
-    if (!trimmed || disabled) return;
+    if (!trimmed || disabled || limitReached) return;
     onSend(trimmed);
     setValue("");
   };
@@ -31,8 +32,8 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
           type="text"
           value={value}
           onChange={(e) => setValue(e.target.value.slice(0, 2000))}
-          placeholder="Ask your coach..."
-          disabled={disabled}
+          placeholder={limitReached ? "Daily credit limit reached. Resets daily." : "Ask your running coach anything..."}
+          disabled={disabled || limitReached}
           className="w-full px-4 py-2.5 rounded-full text-sm text-white placeholder-white/40 outline-none border border-white/10 disabled:opacity-50"
           style={{ background: "#1A1A2A" }}
           maxLength={2000}
@@ -46,7 +47,7 @@ export default function ChatInput({ onSend, disabled }: ChatInputProps) {
 
       <button
         type="submit"
-        disabled={disabled || !value.trim()}
+        disabled={!value.trim() || disabled || limitReached}
         className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-full disabled:opacity-50 active:scale-90 transition-transform duration-100"
         style={{ background: "#C8FC03" }}
       >

@@ -6,6 +6,7 @@ import { useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import ChatMessage from "@/components/chat-message";
 import ChatInput from "@/components/chat-input";
+import { CreditWarningToast, CreditLimitBanner } from "@/components/credit-warning";
 
 function TypingIndicator() {
   return (
@@ -79,6 +80,7 @@ export default function ChatPage() {
   const messages = useQuery(api.chatMessages.list, {});
   const isAiResponding = useQuery(api.chatMessages.isAiResponding);
   const sendMessage = useAction(api.chat.sendMessage);
+  const creditStatus = useQuery(api.users.getCreditStatus);
 
   const [compacting, setCompacting] = useState(false);
   // @ts-ignore
@@ -229,8 +231,20 @@ export default function ChatPage() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Credit status banners */}
+      {creditStatus?.limitReached && <CreditLimitBanner />}
+      {creditStatus?.warning && !creditStatus?.limitReached && (
+        <CreditWarningToast
+          remaining={creditStatus.effectiveLimit - creditStatus.used}
+        />
+      )}
+
       {/* Input */}
-      <ChatInput onSend={handleSend} disabled={!!isAiResponding} />
+      <ChatInput
+        onSend={handleSend}
+        disabled={!!isAiResponding}
+        limitReached={creditStatus?.limitReached}
+      />
 
       {/* Bounce animation keyframes */}
       <style jsx global>{`
