@@ -17,6 +17,7 @@ export default defineSchema({
     ),
     lastSyncAt: v.optional(v.number()),
     chatSummary: v.optional(v.string()),
+    dailyCreditLimit: v.optional(v.number()),
     createdAt: v.number(),
   }).index("by_clerkId", ["clerkId"]),
 
