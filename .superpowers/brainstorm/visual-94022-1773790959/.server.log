@@ -1,0 +1,19 @@
+node:internal/modules/esm/resolve:977
+    if (inputTypeFlag) { throw new ERR_INPUT_TYPE_NOT_ALLOWED(); }
+                               ^
+
+Error [ERR_INPUT_TYPE_NOT_ALLOWED]: --input-type can only be used with string input via --eval, --print, or STDIN
+    at defaultResolve (node:internal/modules/esm/resolve:977:32)
+    at #cachedDefaultResolve (node:internal/modules/esm/loader:731:20)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:708:38)
+    at ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:310:38)
+    at onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:36)
+    at TracingChannel.tracePromise (node:diagnostics_channel:350:14)
+    at ModuleLoader.import (node:internal/modules/esm/loader:663:21)
+    at node:internal/modules/run_main:179:35
+    at asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:11)
+    at runEntryPointWithESMLoader (node:internal/modules/run_main:139:19) {
+  code: 'ERR_INPUT_TYPE_NOT_ALLOWED'
+}
+
+Node.js v22.22.0

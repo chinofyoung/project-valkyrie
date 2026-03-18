@@ -1,0 +1,26 @@
+<h2>What happens when you hit your daily limit?</h2>
+<p class="subtitle">How should the app behave when all credits are used up for the day?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Hard Block</h3>
+      <p>Disable the chat input and analysis buttons entirely. Show a clear message: "You've used all your credits for today. Resets at midnight." No way around it.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Soft Warning + Block</h3>
+      <p>Show a warning toast when approaching the limit (e.g. 2 credits left). Then hard block when fully exhausted with a friendly message and link to adjust the limit in settings.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Warning Only (No Block)</h3>
+      <p>Show a warning when the limit is reached but still allow interactions. The limit acts as a budget reminder, not a hard stop. Good for "No Limit" users who still want awareness.</p>
+    </div>
+  </div>
+</div>

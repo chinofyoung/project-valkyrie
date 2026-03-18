@@ -1,0 +1,92 @@
+<h2>Profile Page — Usage & Limits Section</h2>
+<p class="subtitle">New section added to the existing profile page, below Strava connection</p>
+
+<div class="mockup">
+  <div class="mockup-header">Profile Page — Usage & Limits</div>
+  <div class="mockup-body" style="background: #0A0A0A; padding: 24px; font-family: system-ui, -apple-system, sans-serif;">
+
+    <!-- Section Header -->
+    <div style="margin-bottom: 24px;">
+      <h3 style="color: #fff; font-size: 18px; margin: 0 0 4px 0;">Usage & Limits</h3>
+      <p style="color: #9CA3AF; font-size: 14px; margin: 0;">Manage your daily AI credit allowance</p>
+    </div>
+
+    <!-- Today's Usage Card -->
+    <div style="background: #1A1A2A; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <span style="color: #9CA3AF; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em;">Today's Usage</span>
+        <span style="color: #C8FC03; font-size: 14px; font-weight: 600;">7 / 20 credits</span>
+      </div>
+      <!-- Progress Bar -->
+      <div style="background: rgba(255,255,255,0.1); border-radius: 6px; height: 8px; overflow: hidden;">
+        <div style="background: #C8FC03; height: 100%; width: 35%; border-radius: 6px; transition: width 0.3s;"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+        <span style="color: #6B7280; font-size: 12px;">4 chat messages + 3 analyses</span>
+        <span style="color: #6B7280; font-size: 12px;">Resets at midnight</span>
+      </div>
+    </div>
+
+    <!-- Daily Limit Selector -->
+    <div style="background: #1A1A2A; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+      <div style="margin-bottom: 12px;">
+        <span style="color: #fff; font-size: 15px; font-weight: 500;">Daily Credit Limit</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <div style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(200,252,3,0.1); border-color: #C8FC03; color: #C8FC03; font-weight: 600; font-size: 14px; cursor: pointer;">20</div>
+        <div style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); color: #9CA3AF; font-size: 14px; cursor: pointer;">40</div>
+        <div style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); color: #9CA3AF; font-size: 14px; cursor: pointer;">60</div>
+        <div style="flex: 1; padding: 10px 0; text-align: center; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); color: #9CA3AF; font-size: 14px;">No Limit</div>
+      </div>
+    </div>
+
+    <!-- Usage History -->
+    <div style="background: #1A1A2A; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px;">
+      <div style="margin-bottom: 16px;">
+        <span style="color: #fff; font-size: 15px; font-weight: 500;">Usage History</span>
+        <span style="color: #6B7280; font-size: 13px; margin-left: 8px;">Last 7 days</span>
+      </div>
+      <!-- Bar Chart -->
+      <div style="display: flex; align-items: flex-end; gap: 8px; height: 100px; margin-bottom: 8px;">
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+          <span style="color: #6B7280; font-size: 11px;">12</span>
+          <div style="width: 100%; background: rgba(200,252,3,0.3); border-radius: 4px 4px 0 0; height: 60px;"></div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+          <span style="color: #6B7280; font-size: 11px;">8</span>
+          <div style="width: 100%; background: rgba(200,252,3,0.3); border-radius: 4px 4px 0 0; height: 40px;"></div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+          <span style="color: #6B7280; font-size: 11px;">18</span>
+          <div style="width: 100%; background: rgba(200,252,3,0.3); border-radius: 4px 4px 0 0; height: 90px;"></div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+          <span style="color: #6B7280; font-size: 11px;">5</span>
+          <div style="width: 100%; background: rgba(200,252,3,0.3); border-radius: 4px 4px 0 0; height: 25px;"></div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+          <span style="color: #6B7280; font-size: 11px;">15</span>
+          <div style="width: 100%; background: rgba(200,252,3,0.3); border-radius: 4px 4px 0 0; height: 75px;"></div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+          <span style="color: #6B7280; font-size: 11px;">20</span>
+          <div style="width: 100%; background: rgba(200,252,3,0.6); border-radius: 4px 4px 0 0; height: 100px; border-top: 2px solid #ef4444;"></div>
+        </div>
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+          <span style="color: #C8FC03; font-size: 11px; font-weight: 600;">7</span>
+          <div style="width: 100%; background: #C8FC03; border-radius: 4px 4px 0 0; height: 35px;"></div>
+        </div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <div style="flex: 1; text-align: center; color: #6B7280; font-size: 11px;">Mar 12</div>
+        <div style="flex: 1; text-align: center; color: #6B7280; font-size: 11px;">Mar 13</div>
+        <div style="flex: 1; text-align: center; color: #6B7280; font-size: 11px;">Mar 14</div>
+        <div style="flex: 1; text-align: center; color: #6B7280; font-size: 11px;">Mar 15</div>
+        <div style="flex: 1; text-align: center; color: #6B7280; font-size: 11px;">Mar 16</div>
+        <div style="flex: 1; text-align: center; color: #6B7280; font-size: 11px;">Mar 17</div>
+        <div style="flex: 1; text-align: center; color: #C8FC03; font-size: 11px; font-weight: 600;">Today</div>
+      </div>
+    </div>
+
+  </div>
+</div>
