@@ -34,7 +34,7 @@ export default function ChatInput({ onSend, disabled, limitReached }: ChatInputP
           onChange={(e) => setValue(e.target.value.slice(0, 2000))}
           placeholder={limitReached ? "Daily credit limit reached. Resets daily." : "Ask your running coach anything..."}
           disabled={disabled || limitReached}
-          className="w-full px-4 py-2.5 rounded-full text-sm text-white placeholder-white/40 outline-none border border-white/10 disabled:opacity-50"
+          className="w-full px-4 py-2.5 rounded-full text-base md:text-sm text-white placeholder-white/40 outline-none border border-white/10 disabled:opacity-50"
           style={{ background: "#1A1A2A" }}
           maxLength={2000}
         />
