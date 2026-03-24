@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { api } from "@/convex/_generated/api";
 import { SyncButton } from "@/components/sync-button";
 import { ModelSelector } from "@/components/model-selector";
+import { UsageHistory } from "@/components/usage-limits";
 
 export default function ProfilePage() {
   const { user, isLoaded } = useUser();
@@ -113,6 +114,9 @@ export default function ProfilePage() {
 
       {/* AI Model */}
       <ModelSelector />
+
+      {/* Usage History */}
+      <UsageHistory />
 
       {/* Danger zone */}
       <div className="bg-surface rounded-2xl p-6 border border-error/20 space-y-4">
