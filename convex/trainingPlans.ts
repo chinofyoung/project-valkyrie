@@ -18,6 +18,29 @@ export const getActive = internalQuery({
   },
 });
 
+// Public query — returns a training plan by ID (for chat preview cards)
+export const getById = query({
+  args: {
+    planId: v.id("trainingPlans"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) return null;
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan || plan.userId !== user._id) return null;
+
+    return plan;
+  },
+});
+
 // Public query — returns the active training plan for the authenticated user
 export const getActivePlan = query({
   handler: async (ctx) => {
@@ -99,7 +122,7 @@ export const create = internalMutation({
       await ctx.db.patch(existingActive._id, { status: "abandoned" });
     }
 
-    await ctx.db.insert("trainingPlans", {
+    return await ctx.db.insert("trainingPlans", {
       userId: args.userId,
       goal: args.goal,
       startDate: args.startDate,
@@ -145,6 +168,54 @@ export const toggleWorkout = mutation({
     });
 
     await ctx.db.patch(args.planId, { weeks: updatedWeeks });
+  },
+});
+
+// Update plan details (goal, dates, workouts)
+export const updatePlan = mutation({
+  args: {
+    planId: v.id("trainingPlans"),
+    goal: v.optional(v.string()),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    weeks: v.optional(
+      v.array(
+        v.object({
+          weekNumber: v.number(),
+          workouts: v.array(
+            v.object({
+              day: v.string(),
+              description: v.string(),
+              type: v.string(),
+              completed: v.boolean(),
+            })
+          ),
+        })
+      )
+    ),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+
+    if (!user) throw new Error("User not found");
+
+    const plan = await ctx.db.get(args.planId);
+    if (!plan) throw new Error("Plan not found");
+    if (plan.userId !== user._id) throw new Error("Unauthorized");
+
+    const patch: Record<string, any> = {};
+    if (args.goal !== undefined) patch.goal = args.goal;
+    if (args.startDate !== undefined) patch.startDate = args.startDate;
+    if (args.endDate !== undefined) patch.endDate = args.endDate;
+    if (args.weeks !== undefined) patch.weeks = args.weeks;
+
+    await ctx.db.patch(args.planId, patch);
   },
 });
 

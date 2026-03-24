@@ -80,6 +80,7 @@ export default defineSchema({
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     displayText: v.optional(v.string()),
+    trainingPlanId: v.optional(v.id("trainingPlans")),
     createdAt: v.number(),
   }).index("by_userId_createdAt", ["userId", "createdAt"]),
 

@@ -254,6 +254,7 @@ ${
       const jsonMatch = responseText.match(jsonBlockRegex);
 
       let cleanedResponse = responseText;
+      let createdPlanId: Id<"trainingPlans"> | undefined;
       if (jsonMatch) {
         try {
           const parsed = JSON.parse(jsonMatch[1]);
@@ -271,7 +272,7 @@ ${
             const endDate = new Date(startDate);
             endDate.setDate(startDate.getDate() + planData.weeks.length * 7);
 
-            await ctx.runMutation(internal.trainingPlans.create, {
+            createdPlanId = await ctx.runMutation(internal.trainingPlans.create, {
               userId: user._id,
               goal: planData.goal,
               startDate: startDate.getTime(),
@@ -292,6 +293,7 @@ ${
         userId: user._id,
         role: "assistant",
         content: cleanedResponse,
+        ...(createdPlanId ? { trainingPlanId: createdPlanId } : {}),
       });
 
       // Only schedule compaction when message count exceeds threshold

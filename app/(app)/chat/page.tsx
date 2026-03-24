@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useAction } from "convex/react";
+import { useQuery, useAction, useMutation } from "convex/react";
 // @ts-ignore
 import { api } from "@/convex/_generated/api";
 import ChatMessage from "@/components/chat-message";
@@ -37,7 +37,7 @@ function TypingIndicator() {
 
 const VISIBLE_COUNT = 5;
 
-function MessageList({ messages, isAiResponding }: { messages: any[]; isAiResponding: boolean | undefined }) {
+function MessageList({ messages, isAiResponding, onDeleteMessage }: { messages: any[]; isAiResponding: boolean | undefined; onDeleteMessage: (id: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const hiddenCount = messages.length - VISIBLE_COUNT;
   const hasHidden = hiddenCount > 0 && !expanded;
@@ -67,7 +67,9 @@ function MessageList({ messages, isAiResponding }: { messages: any[]; isAiRespon
           role={msg.role}
           content={msg.content}
           displayText={msg.displayText}
+          trainingPlanId={msg.trainingPlanId}
           createdAt={msg.createdAt}
+          onDelete={() => onDeleteMessage(msg._id)}
         />
       ))}
       {isAiResponding && <TypingIndicator />}
@@ -79,6 +81,7 @@ export default function ChatPage() {
   const messages = useQuery(api.chatMessages.list, {});
   const isAiResponding = useQuery(api.chatMessages.isAiResponding);
   const sendMessage = useAction(api.chat.sendMessage);
+  const deleteMessage = useMutation(api.chatMessages.deleteMessage);
   const [compacting, setCompacting] = useState(false);
   // @ts-ignore
   const compactNow = useAction(api.chat.compactNow);
@@ -214,7 +217,7 @@ export default function ChatPage() {
             </div>
           </div>
         ) : (
-          <MessageList messages={messages} isAiResponding={isAiResponding} />
+          <MessageList messages={messages} isAiResponding={isAiResponding} onDeleteMessage={(id) => deleteMessage({ messageId: id as any })} />
         )}
 
         {/* Error message */}

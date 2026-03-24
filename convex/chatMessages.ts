@@ -34,6 +34,7 @@ export const insert = internalMutation({
     role: v.union(v.literal("user"), v.literal("assistant")),
     content: v.string(),
     displayText: v.optional(v.string()),
+    trainingPlanId: v.optional(v.id("trainingPlans")),
   },
   handler: async (ctx, args) => {
     const content =
@@ -44,6 +45,7 @@ export const insert = internalMutation({
       role: args.role,
       content,
       ...(args.displayText ? { displayText: args.displayText } : {}),
+      ...(args.trainingPlanId ? { trainingPlanId: args.trainingPlanId } : {}),
       createdAt: Date.now(),
     });
   },
@@ -112,6 +114,29 @@ export const deleteMessages = internalMutation({
     for (const id of args.messageIds) {
       await ctx.db.delete(id);
     }
+  },
+});
+
+export const deleteMessage = mutation({
+  args: {
+    messageId: v.id("chatMessages"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+
+    const message = await ctx.db.get(args.messageId);
+    if (!message || message.userId !== user._id) {
+      throw new Error("Message not found");
+    }
+
+    await ctx.db.delete(args.messageId);
   },
 });
 
