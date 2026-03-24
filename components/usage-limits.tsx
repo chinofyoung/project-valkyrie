@@ -12,10 +12,10 @@ export function UsageHistory() {
 
   // SVG dimensions
   const width = 500;
-  const height = 120;
-  const padX = 0;
-  const padTop = 16;
-  const padBottom = 4;
+  const height = 80;
+  const padX = 20;
+  const padTop = 18;
+  const padBottom = 6;
   const graphW = width - padX * 2;
   const graphH = height - padTop - padBottom;
 
@@ -37,7 +37,7 @@ export function UsageHistory() {
 
       <div className="rounded-xl border border-white/10 bg-[#1A1A2A] p-5">
         {/* Line graph */}
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="none">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full overflow-visible">
           {/* Gradient fill */}
           <defs>
             <linearGradient id="usageGradient" x1="0" y1="0" x2="0" y2="1">
@@ -64,7 +64,7 @@ export function UsageHistory() {
                   textAnchor="middle"
                   className={`text-[11px] ${isToday ? "font-semibold" : ""}`}
                   fill={isToday ? "#C8FC03" : "#6B7280"}
-                  fontSize="11"
+                  fontSize="9"
                 >
                   {p.total}
                 </text>

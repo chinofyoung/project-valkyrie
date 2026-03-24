@@ -63,20 +63,20 @@ export function ModelSelector() {
     await updateModel({ modelId: activeSelectedModel });
   };
 
-  const renderModelRow = (model: ModelOption) => {
+  const renderModelCard = (model: ModelOption) => {
     const isActive = activeSelectedModel === model.id;
     return (
       <button
         key={model.id}
         onClick={() => handleSelect(model.id)}
-        className={`w-full flex items-center justify-between rounded-lg border px-4 py-3 text-sm transition-colors ${
+        className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
           isActive
             ? "border-[#C8FC03] bg-[#C8FC03]/10 text-[#C8FC03]"
             : "border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-300"
         }`}
       >
-        <span className="font-medium">{model.name}</span>
-        <span className="text-xs tabular-nums">
+        <span className="block text-sm font-medium truncate">{model.name}</span>
+        <span className="block text-[11px] tabular-nums mt-0.5 opacity-70">
           {model.inputCostPer1M === 0 && model.outputCostPer1M === 0
             ? "Free"
             : `$${model.inputCostPer1M} / $${model.outputCostPer1M}`}
@@ -94,14 +94,8 @@ export function ModelSelector() {
         </p>
       </div>
 
-      {/* Model list */}
+      {/* Model grid */}
       <div className="rounded-xl border border-white/10 bg-[#1A1A2A] p-5 space-y-4">
-        {/* Pricing header */}
-        <div className="flex items-center justify-between text-xs text-gray-500 px-4">
-          <span>Model</span>
-          <span>Input / Output per 1M tokens</span>
-        </div>
-
         {/* Free tier */}
         <div className="space-y-2">
           <button
@@ -112,8 +106,8 @@ export function ModelSelector() {
             <span>Free</span>
           </button>
           {freeOpen && (
-            <div className="space-y-1.5">
-              {freeModels.map(renderModelRow)}
+            <div className="grid grid-cols-3 gap-2">
+              {freeModels.map(renderModelCard)}
             </div>
           )}
         </div>
@@ -128,8 +122,8 @@ export function ModelSelector() {
             <span>Paid</span>
           </button>
           {paidOpen && (
-            <div className="space-y-1.5">
-              {paidModels.map(renderModelRow)}
+            <div className="grid grid-cols-3 gap-2">
+              {paidModels.map(renderModelCard)}
             </div>
           )}
         </div>
