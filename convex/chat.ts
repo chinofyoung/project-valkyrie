@@ -6,7 +6,6 @@ import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
-import { checkCreditLimit } from "./creditLimit";
 import { getModelOrDefault } from "./models";
 
 // ---------------------------------------------------------------------------
@@ -102,14 +101,6 @@ export const sendMessage = action({
     if (!user) throw new Error("User not found");
 
     const model = getModelOrDefault(user.preferredModel);
-
-    // Rate limit check
-    const creditStatus = await checkCreditLimit(ctx, user._id);
-    if (!creditStatus.allowed) {
-      throw new Error(
-        `Daily credit limit reached (${creditStatus.used}/${creditStatus.effectiveLimit}). Resets daily.`
-      );
-    }
 
     // Insert the user's message
     await ctx.runMutation(internal.chatMessages.insert, {
@@ -340,13 +331,6 @@ export const compactNow = action({
     // @ts-ignore
     const user = await ctx.runQuery(api.users.currentUser, {});
     if (!user) throw new Error("User not found");
-
-    const creditStatus = await checkCreditLimit(ctx, user._id);
-    if (!creditStatus.allowed) {
-      throw new Error(
-        `Daily credit limit reached (${creditStatus.used}/${creditStatus.effectiveLimit}). Resets daily.`
-      );
-    }
 
     const userId = user._id;
 

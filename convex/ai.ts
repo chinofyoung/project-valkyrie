@@ -6,7 +6,6 @@ import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
-import { checkCreditLimit } from "./creditLimit";
 import { getModelOrDefault } from "./models";
 
 // ---------------------------------------------------------------------------
@@ -175,13 +174,6 @@ export const analyzeRun = action({
     const user = await ctx.runQuery(api.users.currentUser, {});
     if (!user) throw new Error("User not found");
 
-    const creditStatus = await checkCreditLimit(ctx, user._id);
-    if (!creditStatus.allowed) {
-      throw new Error(
-        `Daily credit limit reached (${creditStatus.used}/${creditStatus.effectiveLimit}). Resets daily.`
-      );
-    }
-
     // Fetch the target activity
     // @ts-ignore
     const activity = await ctx.runQuery(api.activities.getById, { id: args.activityId });
@@ -295,13 +287,6 @@ export const analyzeProgress = action({
     // @ts-ignore
     const user = await ctx.runQuery(api.users.currentUser, {});
     if (!user) throw new Error("User not found");
-
-    const creditStatus = await checkCreditLimit(ctx, user._id);
-    if (!creditStatus.allowed) {
-      throw new Error(
-        `Daily credit limit reached (${creditStatus.used}/${creditStatus.effectiveLimit}). Resets daily.`
-      );
-    }
 
     // Fetch last 90 days of activities (use a large limit)
     // @ts-ignore

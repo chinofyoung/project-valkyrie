@@ -90,18 +90,3 @@ export const listAnalyzedActivityIds = query({
   },
 });
 
-export const countSince = internalQuery({
-  args: {
-    userId: v.id("users"),
-    since: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const analyses = await ctx.db
-      .query("aiAnalyses")
-      .withIndex("by_userId_activityId", (q) => q.eq("userId", args.userId))
-      .filter((q) => q.gte(q.field("createdAt"), args.since))
-      .collect();
-
-    return analyses.length;
-  },
-});

@@ -78,24 +78,6 @@ export const isAiResponding = query({
   },
 });
 
-export const countAssistantSince = internalQuery({
-  args: {
-    userId: v.id("users"),
-    since: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const messages = await ctx.db
-      .query("chatMessages")
-      .withIndex("by_userId_createdAt", (q) =>
-        q.eq("userId", args.userId).gte("createdAt", args.since)
-      )
-      .filter((q) => q.eq(q.field("role"), "assistant"))
-      .collect();
-
-    return messages.length;
-  },
-});
-
 export const countForUser = internalQuery({
   args: {
     userId: v.id("users"),
