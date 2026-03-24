@@ -1,7 +1,8 @@
-import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { ALLOWED_CREDIT_LIMITS, DEFAULT_CREDIT_LIMIT, SAFETY_CAP, WARNING_THRESHOLD } from "./constants";
 import { ALLOWED_EMAILS } from "./constants";
+import { isAllowedModel } from "./models";
 
 
 export const syncUser = mutation({
@@ -168,6 +169,48 @@ export const updateDailyCreditLimit = mutation({
       .unique();
     if (!user) throw new Error("User not found");
     await ctx.db.patch(user._id, { dailyCreditLimit: args.limit });
+  },
+});
+
+export const updatePreferredModel = mutation({
+  args: { modelId: v.string() },
+  handler: async (ctx, args) => {
+    if (!isAllowedModel(args.modelId)) {
+      throw new Error("Invalid model selection");
+    }
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) throw new Error("User not found");
+    await ctx.db.patch(user._id, { preferredModel: args.modelId });
+  },
+});
+
+export const getOpenRouterCredits = action({
+  handler: async () => {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) return null;
+
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      // data.data has: label, usage, limit, is_free_tier, rate_limit
+      const { limit, usage } = data.data;
+      return {
+        limit: limit as number | null,       // null = unlimited
+        usage: usage as number,              // total spent in dollars
+        remaining: limit != null ? limit - usage : null,  // null = unlimited
+        isUnlimited: limit == null,
+      };
+    } catch {
+      return null;
+    }
   },
 });
 
