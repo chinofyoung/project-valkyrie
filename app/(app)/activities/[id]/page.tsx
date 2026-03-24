@@ -39,8 +39,6 @@ export default function ActivityDetailPage({ params }: PageProps) {
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
 
   // @ts-ignore
-  const creditStatus = useQuery(api.users.getCreditStatus);
-  // @ts-ignore
   const activity = useQuery(api.activities.getById, { id });
   // @ts-ignore
   const existingAnalysis = useQuery(api.aiAnalyses.getForActivity, { activityId: id });
@@ -260,9 +258,8 @@ export default function ActivityDetailPage({ params }: PageProps) {
       {/* Analyze Run Button */}
       <button
         onClick={handleAnalyzeRun}
-        disabled={analyzing || creditStatus?.limitReached}
-        title={creditStatus?.limitReached ? "No credits remaining today" : undefined}
-        className={`w-full md:w-auto md:px-8 py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed active:scale-95 transition-transform duration-100 ${creditStatus?.limitReached ? "opacity-50 cursor-not-allowed" : ""}`}
+        disabled={analyzing}
+        className="w-full md:w-auto md:px-8 py-3.5 rounded-xl bg-[#C8FC03] text-black font-semibold text-sm mb-4 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed active:scale-95 transition-transform duration-100"
       >
         <svg
           className={analyzing ? "animate-spin" : ""}
@@ -293,7 +290,6 @@ export default function ActivityDetailPage({ params }: PageProps) {
         onAddToChat={handleAddToChat}
         label={`Analyze ${activityTypeLabel(activity?.type ?? "Run")}`}
         defaultExpanded
-        limitReached={creditStatus?.limitReached}
       />
     </div>
   );

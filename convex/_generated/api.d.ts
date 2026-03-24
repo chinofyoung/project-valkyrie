@@ -15,7 +15,7 @@ import type * as bestEfforts from "../bestEfforts.js";
 import type * as chat from "../chat.js";
 import type * as chatMessages from "../chatMessages.js";
 import type * as constants from "../constants.js";
-import type * as creditLimit from "../creditLimit.js";
+import type * as models from "../models.js";
 import type * as strava from "../strava.js";
 import type * as syncStatus from "../syncStatus.js";
 import type * as trainingPlans from "../trainingPlans.js";
@@ -35,7 +35,7 @@ declare const fullApi: ApiFromModules<{
   chat: typeof chat;
   chatMessages: typeof chatMessages;
   constants: typeof constants;
-  creditLimit: typeof creditLimit;
+  models: typeof models;
   strava: typeof strava;
   syncStatus: typeof syncStatus;
   trainingPlans: typeof trainingPlans;

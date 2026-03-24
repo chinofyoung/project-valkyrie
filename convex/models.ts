@@ -13,9 +13,9 @@ export interface ModelOption {
 // Pricing verified 2026-03-24 — review when adding/updating models
 export const AVAILABLE_MODELS: ModelOption[] = [
   // Free
-  { id: "meta-llama/llama-4-maverick:free", name: "Llama 4 Maverick", tier: "free", inputCostPer1M: 0, outputCostPer1M: 0 },
-  { id: "google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash", tier: "free", inputCostPer1M: 0, outputCostPer1M: 0 },
-  { id: "qwen/qwen3-8b:free", name: "Qwen3 8B", tier: "free", inputCostPer1M: 0, outputCostPer1M: 0 },
+  { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B", tier: "free", inputCostPer1M: 0, outputCostPer1M: 0 },
+  { id: "google/gemma-3-27b-it:free", name: "Gemma 3 27B", tier: "free", inputCostPer1M: 0, outputCostPer1M: 0 },
+  { id: "qwen/qwen3-4b:free", name: "Qwen3 4B", tier: "free", inputCostPer1M: 0, outputCostPer1M: 0 },
   // Paid
   { id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4", tier: "paid", inputCostPer1M: 3.0, outputCostPer1M: 15.0 },
   { id: "anthropic/claude-3.5-haiku", name: "Claude Haiku 3.5", tier: "paid", inputCostPer1M: 0.8, outputCostPer1M: 4.0 },

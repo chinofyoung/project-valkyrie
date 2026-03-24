@@ -6,7 +6,9 @@
       "Bash(npx next:*)",
       "Bash(git check-ignore:*)",
       "Bash(npx convex:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(ls /Users/chinoyoung/Code/project-valkyrie/app/\\\\\\(app\\\\\\))",
+      "Bash(ls /Users/chinoyoung/Code/project-valkyrie/app/\\\\\\(app\\\\\\)/chat)"
     ]
   }
 }
