@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "convex/react";
+import { useQuery, useMutation, useAction } from "convex/react";
 // @ts-ignore
 import { api } from "@/convex/_generated/api";
 import Link from "next/link";
@@ -50,7 +50,6 @@ function getCurrentWeekNumber(startMs: number, weeks: Week[]): number {
   const now = Date.now();
   const elapsed = now - startMs;
   const weekIndex = Math.floor(elapsed / msPerWeek);
-  // Clamp to valid range
   const clamped = Math.max(0, Math.min(weekIndex, weeks.length - 1));
   return weeks[clamped]?.weekNumber ?? 1;
 }
@@ -73,11 +72,74 @@ function workoutTypeStyle(type: string) {
 
 function msToDateInput(ms: number): string {
   const d = new Date(ms);
-  return d.toISOString().split("T")[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function dateInputToMs(val: string): number {
   return new Date(val + "T00:00:00").getTime();
+}
+
+// ---------------------------------------------------------------------------
+// Date computation helpers
+// ---------------------------------------------------------------------------
+
+const DAY_OFFSETS: Record<string, number> = {
+  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3,
+  Friday: 4, Saturday: 5, Sunday: 6,
+};
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const MS_PER_DAY = 86400000;
+
+function getWorkoutDate(planStartMs: number, weekNumber: number, day: string): Date {
+  const offset = DAY_OFFSETS[day] ?? 0;
+  return new Date(planStartMs + ((weekNumber - 1) * 7 + offset) * MS_PER_DAY);
+}
+
+function formatWorkoutDate(date: Date): string {
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function restructureWeeksForDateRange(
+  weeks: Week[],
+  oldStartMs: number,
+  newStartMs: number,
+  newEndMs: number,
+): { weeks: Week[]; removedCount: number } {
+  // Collect all workouts with their computed dates
+  const all: { dateMs: number; workout: Workout }[] = [];
+  for (const week of weeks) {
+    for (const workout of week.workouts) {
+      const date = getWorkoutDate(oldStartMs, week.weekNumber, workout.day);
+      all.push({ dateMs: date.getTime(), workout });
+    }
+  }
+
+  // Filter to workouts within new range
+  const inRange = all.filter(({ dateMs }) => dateMs >= newStartMs && dateMs < newEndMs);
+  const removedCount = all.length - inRange.length;
+
+  // Build new weeks grouped by 7-day intervals from new start
+  const totalDays = Math.max(0, Math.ceil((newEndMs - newStartMs) / MS_PER_DAY));
+  const totalWeeks = Math.max(1, Math.ceil(totalDays / 7));
+
+  const newWeeks: Week[] = Array.from({ length: totalWeeks }, (_, i) => ({
+    weekNumber: i + 1,
+    workouts: [],
+  }));
+
+  for (const { dateMs, workout } of inRange) {
+    const daysSinceStart = Math.floor((dateMs - newStartMs) / MS_PER_DAY);
+    const weekIdx = Math.min(Math.floor(daysSinceStart / 7), totalWeeks - 1);
+    const dayName = DAY_NAMES[new Date(dateMs).getDay()];
+    newWeeks[weekIdx].workouts.push({ ...workout, day: dayName });
+  }
+
+  return { weeks: newWeeks, removedCount };
 }
 
 // ---------------------------------------------------------------------------
@@ -88,6 +150,7 @@ function WeekSection({
   week,
   defaultOpen,
   planId,
+  planStartMs,
   editing,
   onToggle,
   onUpdateWorkout,
@@ -97,6 +160,7 @@ function WeekSection({
   week: Week;
   defaultOpen: boolean;
   planId: string;
+  planStartMs: number;
   editing: boolean;
   onToggle: (weekNumber: number, workoutIndex: number) => void;
   onUpdateWorkout: (weekNumber: number, workoutIndex: number, field: keyof Workout, value: string) => void;
@@ -106,6 +170,11 @@ function WeekSection({
   const [open, setOpen] = useState(defaultOpen);
   const completedCount = week.workouts.filter((w) => w.completed).length;
 
+  // Compute date range for the week header
+  const weekStartDate = new Date(planStartMs + (week.weekNumber - 1) * 7 * MS_PER_DAY);
+  const weekEndDate = new Date(weekStartDate.getTime() + 6 * MS_PER_DAY);
+  const weekDateRange = `${formatWorkoutDate(weekStartDate)} – ${formatWorkoutDate(weekEndDate)}`;
+
   return (
     <div className="rounded-2xl border border-white/10 bg-[#1A1A2A] overflow-hidden">
       {/* Week header */}
@@ -113,7 +182,10 @@ function WeekSection({
         onClick={() => setOpen((v) => !v)}
         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/5 transition-colors"
       >
-        <span className="font-semibold text-white">Week {week.weekNumber}</span>
+        <div>
+          <span className="font-semibold text-white">Week {week.weekNumber}</span>
+          <span className="ml-2 text-xs text-white/40">{weekDateRange}</span>
+        </div>
         <div className="flex items-center gap-3">
           <span className="text-sm text-[#9CA3AF]">
             {completedCount}/{week.workouts.length} completed
@@ -135,6 +207,8 @@ function WeekSection({
         <ul className="divide-y divide-white/5 border-t border-white/10">
           {week.workouts.map((workout, idx) => {
             const typeStyle = workoutTypeStyle(workout.type);
+            const workoutDate = getWorkoutDate(planStartMs, week.weekNumber, workout.day);
+            const dateStr = formatWorkoutDate(workoutDate);
 
             if (editing) {
               return (
@@ -181,10 +255,10 @@ function WeekSection({
 
             return (
               <li key={idx} className="flex items-start gap-4 px-5 py-4">
-                {/* Checkbox — wrapped in a larger touch target */}
+                {/* Checkbox */}
                 <button
                   onClick={() => onToggle(week.weekNumber, idx)}
-                  className={`mt-0.5 flex-shrink-0 w-11 h-11 flex items-center justify-center -m-3 rounded-xl transition-colors`}
+                  className="mt-0.5 flex-shrink-0 w-11 h-11 flex items-center justify-center -m-3 rounded-xl transition-colors"
                   aria-label={workout.completed ? "Mark incomplete" : "Mark complete"}
                 >
                   <span className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
@@ -206,6 +280,7 @@ function WeekSection({
                     <span className={`font-medium text-sm ${workout.completed ? "line-through text-[#9CA3AF]" : "text-white"}`}>
                       {workout.day}
                     </span>
+                    <span className="text-xs text-white/30">{dateStr}</span>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeStyle.bg} ${typeStyle.text}`}>
                       {typeStyle.label}
                     </span>
@@ -245,52 +320,45 @@ export default function PlanPage() {
   const toggleWorkout = useMutation(api.trainingPlans.toggleWorkout);
   const updateStatus = useMutation(api.trainingPlans.updateStatus);
   const updatePlan = useMutation(api.trainingPlans.updatePlan);
+  const adjustPlanWorkouts = useAction(api.chat.adjustPlanWorkouts);
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editGoal, setEditGoal] = useState("");
   const [editStartDate, setEditStartDate] = useState("");
   const [editEndDate, setEditEndDate] = useState("");
   const [editWeeks, setEditWeeks] = useState<Week[]>([]);
+  const [editWeeksBaseStart, setEditWeeksBaseStart] = useState(0);
+  const [removedCount, setRemovedCount] = useState(0);
+  const [adjusting, setAdjusting] = useState(false);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
 
   // Loading state
   if (plan === undefined) {
     return (
       <div className="pb-8">
-        {/* Header skeleton */}
         <div className="mb-8">
-          {/* Goal title */}
           <div className="bg-white/5 animate-pulse rounded h-7 w-2/3 mb-2" />
-          {/* Date range */}
           <div className="bg-white/5 animate-pulse rounded h-4 w-1/3 mb-5" />
-          {/* Progress bar */}
           <div className="flex items-center gap-3 mb-2">
             <div className="flex-1 h-2 rounded-full bg-white/5 animate-pulse" />
             <div className="bg-white/5 animate-pulse rounded h-4 w-10" />
           </div>
-          {/* "X of Y workouts" label */}
           <div className="bg-white/5 animate-pulse rounded h-3 w-1/4" />
         </div>
-
-        {/* Week section skeletons */}
         <div className="space-y-3">
           {[4, 3, 4].map((rowCount, weekIdx) => (
             <div
               key={weekIdx}
               className="rounded-2xl border border-white/5 bg-[#1A1A2A] overflow-hidden"
             >
-              {/* Week header row */}
               <div className="flex items-center justify-between px-5 py-4">
                 <div className="bg-white/5 animate-pulse rounded h-5 w-20" />
                 <div className="bg-white/5 animate-pulse rounded h-4 w-24" />
               </div>
-
-              {/* Workout row placeholders */}
               <ul className="divide-y divide-white/5 border-t border-white/5">
                 {Array.from({ length: rowCount }).map((_, rowIdx) => (
                   <li key={rowIdx} className="flex items-start gap-4 px-5 py-4">
-                    {/* Checkbox placeholder */}
                     <div className="bg-white/5 animate-pulse rounded w-5 h-5 mt-0.5 flex-shrink-0" />
-                    {/* Text lines */}
                     <div className="flex-1 min-w-0 space-y-2">
                       <div className="flex items-center gap-2">
                         <div className="bg-white/5 animate-pulse rounded h-4 w-16" />
@@ -308,7 +376,7 @@ export default function PlanPage() {
     );
   }
 
-  // Empty state — no active plan
+  // Empty state
   if (plan === null) {
     return (
       <div className="flex items-center justify-center py-20 px-4">
@@ -333,11 +401,15 @@ export default function PlanPage() {
     );
   }
 
-  // Active plan view — plan is guaranteed non-null after the early returns above
+  // Active plan view
   const activePlan = plan!;
   const weeks = editing ? editWeeks : (activePlan.weeks as Week[]);
+  const planStartMs = editing ? dateInputToMs(editStartDate) : activePlan.startDate;
   const { completed, total, pct } = getOverallProgress(activePlan.weeks as Week[]);
   const currentWeekNumber = getCurrentWeekNumber(activePlan.startDate, activePlan.weeks as Week[]);
+
+  // Detect empty weeks in the saved plan (for AI fix banner)
+  const hasEmptyWeeks = !editing && (activePlan.weeks as Week[]).some((w) => w.workouts.length === 0);
 
   function handleToggle(weekNumber: number, workoutIndex: number) {
     toggleWorkout({ planId: activePlan._id, weekNumber, workoutIndex });
@@ -348,11 +420,14 @@ export default function PlanPage() {
     setEditStartDate(msToDateInput(activePlan.startDate));
     setEditEndDate(msToDateInput(activePlan.endDate));
     setEditWeeks(JSON.parse(JSON.stringify(activePlan.weeks)));
+    setEditWeeksBaseStart(activePlan.startDate);
+    setRemovedCount(0);
     setEditing(true);
   }
 
   function cancelEditing() {
     setEditing(false);
+    setRemovedCount(0);
   }
 
   async function saveEdits() {
@@ -364,6 +439,30 @@ export default function PlanPage() {
       weeks: editWeeks,
     });
     setEditing(false);
+    setRemovedCount(0);
+  }
+
+  function handleStartDateChange(val: string) {
+    const newStartMs = dateInputToMs(val);
+    const newEndMs = dateInputToMs(editEndDate);
+    const { weeks: newWeeks, removedCount: removed } = restructureWeeksForDateRange(
+      editWeeks, editWeeksBaseStart, newStartMs, newEndMs
+    );
+    setEditWeeks(newWeeks);
+    setEditWeeksBaseStart(newStartMs);
+    setEditStartDate(val);
+    setRemovedCount((prev) => prev + removed);
+  }
+
+  function handleEndDateChange(val: string) {
+    const newStartMs = dateInputToMs(editStartDate);
+    const newEndMs = dateInputToMs(val);
+    const { weeks: newWeeks, removedCount: removed } = restructureWeeksForDateRange(
+      editWeeks, editWeeksBaseStart, newStartMs, newEndMs
+    );
+    setEditWeeks(newWeeks);
+    setEditEndDate(val);
+    setRemovedCount((prev) => prev + removed);
   }
 
   function handleUpdateWorkout(weekNumber: number, workoutIndex: number, field: keyof Workout, value: string) {
@@ -401,6 +500,18 @@ export default function PlanPage() {
     );
   }
 
+  async function handleAdjustWithAI() {
+    setAdjusting(true);
+    setAdjustError(null);
+    try {
+      await adjustPlanWorkouts({ planId: activePlan._id });
+    } catch (err) {
+      setAdjustError(err instanceof Error ? err.message : "Failed to adjust plan");
+    } finally {
+      setAdjusting(false);
+    }
+  }
+
   async function handleAbandon() {
     await updateStatus({ planId: activePlan._id, status: "abandoned" });
     setShowAbandonConfirm(false);
@@ -436,14 +547,14 @@ export default function PlanPage() {
             <input
               type="date"
               value={editStartDate}
-              onChange={(e) => setEditStartDate(e.target.value)}
+              onChange={(e) => handleStartDateChange(e.target.value)}
               className="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C8FC03]/50"
             />
             <span className="text-white/40 text-sm">to</span>
             <input
               type="date"
               value={editEndDate}
-              onChange={(e) => setEditEndDate(e.target.value)}
+              onChange={(e) => handleEndDateChange(e.target.value)}
               className="px-2 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:border-[#C8FC03]/50"
             />
           </div>
@@ -470,6 +581,61 @@ export default function PlanPage() {
         </p>
       </div>
 
+      {/* Edit mode: removed workouts banner */}
+      {editing && removedCount > 0 && (
+        <div className="mb-4 rounded-xl border border-yellow-500/20 bg-yellow-500/5 px-4 py-3 flex items-center gap-3">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FACC15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" />
+          </svg>
+          <p className="text-xs text-yellow-200/80">
+            {removedCount} workout{removedCount !== 1 ? "s" : ""} removed due to date changes.
+            Save and use <strong>Adjust with AI</strong> to fill gaps.
+          </p>
+        </div>
+      )}
+
+      {/* View mode: empty weeks / AI fix banner */}
+      {hasEmptyWeeks && !adjusting && (
+        <div className="mb-4 rounded-xl border border-[#C8FC03]/20 bg-[#C8FC03]/5 px-4 py-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm text-white font-medium">Some weeks have no workouts</p>
+            <p className="text-xs text-white/50 mt-0.5">AI can fill in the gaps based on your training context</p>
+          </div>
+          <button
+            onClick={handleAdjustWithAI}
+            className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-black bg-[#C8FC03] hover:bg-[#b8ec00] transition-colors"
+          >
+            Adjust with AI
+          </button>
+        </div>
+      )}
+
+      {/* AI adjusting indicator */}
+      {adjusting && (
+        <div className="mb-4 rounded-xl border border-[#C8FC03]/20 bg-[#C8FC03]/5 px-4 py-3 flex items-center gap-3">
+          <div className="flex gap-1 items-center">
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="w-1.5 h-1.5 rounded-full bg-[#C8FC03]"
+                style={{
+                  animation: "bounce 1.2s infinite",
+                  animationDelay: `${i * 0.2}s`,
+                }}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-white/70">AI is adjusting your plan...</p>
+        </div>
+      )}
+
+      {/* AI adjust error */}
+      {adjustError && (
+        <div className="mb-4 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
+          <p className="text-xs text-red-400">{adjustError}</p>
+        </div>
+      )}
+
       {/* Week sections */}
       <div className="space-y-3 mb-6">
         {weeks.map((week) => (
@@ -478,6 +644,7 @@ export default function PlanPage() {
             week={week}
             defaultOpen={week.weekNumber === currentWeekNumber}
             planId={activePlan._id}
+            planStartMs={planStartMs}
             editing={editing}
             onToggle={handleToggle}
             onUpdateWorkout={handleUpdateWorkout}
@@ -539,6 +706,14 @@ export default function PlanPage() {
           )}
         </>
       )}
+
+      {/* Bounce animation for AI indicator */}
+      <style jsx global>{`
+        @keyframes bounce {
+          0%, 60%, 100% { transform: translateY(0); }
+          30% { transform: translateY(-4px); }
+        }
+      `}</style>
     </div>
   );
 }

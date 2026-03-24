@@ -246,7 +246,12 @@ ${
         responseText = response.choices[0]?.message?.content ?? "";
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
-        throw new Error(`AI coach is unavailable: ${message}`);
+        if (message.includes("402") || message.includes("credits") || message.includes("can only afford")) {
+          throw new Error(
+            "You've run out of OpenRouter credits. Please add more at https://openrouter.ai/settings/credits to continue chatting with your AI coach."
+          );
+        }
+        throw new Error(`AI coach is temporarily unavailable. Please try again in a moment.`);
       }
 
       // Detect and extract a training plan JSON block if present
@@ -319,6 +324,195 @@ ${
       // Re-throw so the client's catch block can also surface the error banner.
       throw err;
     }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// adjustPlanWorkouts — AI-powered plan adjustment
+// ---------------------------------------------------------------------------
+
+export const adjustPlanWorkouts = action({
+  args: {
+    planId: v.id("trainingPlans"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    if (!ALLOWED_EMAILS.includes((identity.email as string)?.toLowerCase())) {
+      throw new Error("Unauthorized");
+    }
+
+    // @ts-ignore
+    const user = await ctx.runQuery(api.users.currentUser, {});
+    if (!user) throw new Error("User not found");
+
+    const model = getModelOrDefault(user.preferredModel);
+
+    // @ts-ignore
+    const plan = await ctx.runQuery(api.trainingPlans.getById, { planId: args.planId });
+    if (!plan) throw new Error("Plan not found");
+
+    // Gather context (same as sendMessage)
+    const chatHistory: any[] = await ctx.runQuery(
+      // @ts-ignore
+      api.chatMessages.list,
+      { limit: 50 }
+    );
+
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+    const recentActivities: any[] = await ctx.runQuery(
+      internal.activities.listForUserSince,
+      { userId: user._id, since: thirtyDaysAgo, limit: 100 }
+    );
+
+    const runTypeActivities = recentActivities.filter((a: any) => a.type === "Run" || a.type === "TrailRun");
+    const cycleTypeActivities = recentActivities.filter((a: any) => isCycling(a.type));
+    const totalRunDistance = runTypeActivities.reduce((sum: number, a: any) => sum + a.distance, 0);
+    const totalCycleDistance = cycleTypeActivities.reduce((sum: number, a: any) => sum + a.distance, 0);
+    const runSpeedValues = runTypeActivities.filter((a: any) => a.averageSpeed > 0).map((a: any) => a.averageSpeed);
+    const avgRunPace = runSpeedValues.length > 0
+      ? speedToPaceMinPerKm(runSpeedValues.reduce((a: number, b: number) => a + b, 0) / runSpeedValues.length)
+      : "--";
+    const cycleSpeedValues = cycleTypeActivities.filter((a: any) => a.averageSpeed > 0).map((a: any) => a.averageSpeed);
+    const avgCycleSpeed = cycleSpeedValues.length > 0
+      ? speedToKmh(cycleSpeedValues.reduce((a: number, b: number) => a + b, 0) / cycleSpeedValues.length)
+      : "--";
+
+    const recentFive: any[] = await ctx.runQuery(
+      internal.activities.listRecentForUser,
+      { userId: user._id, limit: 5 }
+    );
+    const bestEfforts: any[] = await ctx.runQuery(
+      internal.bestEfforts.listForUserInternal,
+      { userId: user._id }
+    );
+
+    const contextPreamble = `
+ATHLETE CONTEXT (last 30 days):
+- Total Activities: ${recentActivities.length}
+${runTypeActivities.length > 0 ? `- Running: ${metersToKm(totalRunDistance)} km across ${runTypeActivities.length} run(s), avg pace ${avgRunPace} min/km` : "- Running: No runs"}
+${cycleTypeActivities.length > 0 ? `- Cycling: ${metersToKm(totalCycleDistance)} km across ${cycleTypeActivities.length} ride(s), avg speed ${avgCycleSpeed} km/h` : "- Cycling: No rides"}
+
+RECENT ACTIVITIES:
+${
+  recentFive.length === 0
+    ? "No recent activities."
+    : recentFive
+        .map(
+          (a: any) =>
+            `- ${new Date(a.startDate).toLocaleDateString()}: [${activityTypeLabel(a.type ?? "Run")}] ${a.name} — ${metersToKm(a.distance)} km @ ${formatSpeedMetric(a.type ?? "Run", a.averageSpeed)}`
+        )
+        .join("\n")
+}
+
+PERSONAL BESTS:
+${
+  bestEfforts.length === 0
+    ? "No best efforts recorded."
+    : bestEfforts
+        .sort((a: any, b: any) => a.distance - b.distance)
+        .map((e: any) => {
+          const m = Math.floor(e.movingTime / 60);
+          const s = e.movingTime % 60;
+          const time = m > 59
+            ? `${Math.floor(m / 60)}:${(m % 60).toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`
+            : `${m}:${s.toString().padStart(2, "0")}`;
+          const paceSecPerKm = e.movingTime / (e.distance / 1000);
+          const paceMin = Math.floor(paceSecPerKm / 60);
+          const paceSec = Math.round(paceSecPerKm % 60);
+          return `- ${e.name}: ${time} (${paceMin}:${paceSec.toString().padStart(2, "0")} /km)`;
+        })
+        .join("\n")
+}`.trim();
+
+    const summaryBlock = user.chatSummary
+      ? `CONVERSATION HISTORY SUMMARY:\n${user.chatSummary}\n\n`
+      : "";
+
+    const systemPrompt = `${BASE_COACHING_PROMPT}\n\n${summaryBlock}${contextPreamble}`;
+
+    const conversationMessages = chatHistory.map((msg: any) => ({
+      role: msg.role as "user" | "assistant",
+      content: msg.content,
+    }));
+
+    // Build the adjustment prompt
+    const planJson = JSON.stringify({
+      goal: plan.goal,
+      startDate: new Date(plan.startDate).toISOString().split("T")[0],
+      endDate: new Date(plan.endDate).toISOString().split("T")[0],
+      weeks: plan.weeks,
+    }, null, 2);
+
+    const adjustPrompt = `The athlete's training plan dates have been adjusted and some days may be missing workouts. Here is the current plan state:
+
+${planJson}
+
+Review this plan and fill in any days that are missing workouts. The plan runs from ${new Date(plan.startDate).toLocaleDateString()} to ${new Date(plan.endDate).toLocaleDateString()}. Each week should have appropriate workouts with rest days. Keep all existing workouts exactly as they are — only add new workouts where days are blank.
+
+Return the complete updated plan as a JSON block:
+\`\`\`json
+{"trainingPlan": {"goal": "${plan.goal}", "weeks": [{"weekNumber": 1, "workouts": [{"day": "Monday", "description": "...", "type": "easy/tempo/interval/long/rest/ride/walk", "completed": false}]}]}}
+\`\`\`
+Place the JSON block at the end of your message, after a brief explanation of what you adjusted.`;
+
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("OPENROUTER_API_KEY environment variable is not set");
+
+    let responseText: string;
+    try {
+      const client = new OpenAI({
+        baseURL: "https://openrouter.ai/api/v1",
+        apiKey,
+      });
+      const response = await client.chat.completions.create({
+        model,
+        max_tokens: 4096,
+        messages: [
+          { role: "system", content: systemPrompt },
+          ...conversationMessages,
+          { role: "user", content: adjustPrompt },
+        ],
+      });
+      responseText = response.choices[0]?.message?.content ?? "";
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      throw new Error(`AI coach is unavailable: ${message}`);
+    }
+
+    // Parse the updated plan from the response
+    const jsonBlockRegex = /```json\s*(\{[\s\S]*?"trainingPlan"[\s\S]*?\})\s*```/;
+    const jsonMatch = responseText.match(jsonBlockRegex);
+
+    let cleanedResponse = responseText;
+
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1]);
+        const planData = parsed.trainingPlan;
+
+        if (planData && Array.isArray(planData.weeks)) {
+          await ctx.runMutation(internal.trainingPlans.updatePlanInternal, {
+            planId: args.planId,
+            weeks: planData.weeks,
+          });
+        }
+      } catch {
+        // If parsing fails, just store the message
+      }
+
+      cleanedResponse = responseText.replace(jsonBlockRegex, "").trim();
+    }
+
+    // Add a chat message about the adjustment
+    await ctx.runMutation(internal.chatMessages.insert, {
+      userId: user._id,
+      role: "assistant",
+      content: cleanedResponse,
+      trainingPlanId: args.planId,
+    });
+
+    return cleanedResponse;
   },
 });
 

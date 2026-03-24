@@ -223,7 +223,22 @@ export default function ChatPage() {
         {/* Error message */}
         {error && (
           <div className="mt-3 px-4 py-2 rounded-lg text-sm text-red-400 border border-red-400/20" style={{ background: "rgba(239,68,68,0.1)" }}>
-            {error}
+            {error.includes("openrouter.ai") ? (
+              <>
+                You&apos;ve run out of OpenRouter credits.{" "}
+                <a
+                  href="https://openrouter.ai/settings/credits"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline text-red-300 hover:text-red-200"
+                >
+                  Add more credits
+                </a>{" "}
+                to continue chatting with your AI coach.
+              </>
+            ) : (
+              error
+            )}
           </div>
         )}
 

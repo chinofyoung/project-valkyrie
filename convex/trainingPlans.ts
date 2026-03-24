@@ -171,6 +171,29 @@ export const toggleWorkout = mutation({
   },
 });
 
+// Internal mutation for AI-driven plan updates (no auth check — called from actions)
+export const updatePlanInternal = internalMutation({
+  args: {
+    planId: v.id("trainingPlans"),
+    weeks: v.array(
+      v.object({
+        weekNumber: v.number(),
+        workouts: v.array(
+          v.object({
+            day: v.string(),
+            description: v.string(),
+            type: v.string(),
+            completed: v.boolean(),
+          })
+        ),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.planId, { weeks: args.weeks });
+  },
+});
+
 // Update plan details (goal, dates, workouts)
 export const updatePlan = mutation({
   args: {
