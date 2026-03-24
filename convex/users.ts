@@ -1,6 +1,6 @@
 import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { ALLOWED_EMAILS } from "./constants";
+import { ALLOWED_EMAILS, DEFAULT_CREDIT_LIMIT, SAFETY_CAP, WARNING_THRESHOLD } from "./constants";
 import { isAllowedModel } from "./models";
 
 
@@ -193,6 +193,58 @@ export const getOpenRouterCredits = action({
     } catch {
       return null;
     }
+  },
+});
+
+export const getCreditStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_clerkId", (q) => q.eq("clerkId", identity.subject))
+      .unique();
+    if (!user) return null;
+
+    // dailyCreditLimit is optional and may not be in schema yet
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const limit = (user as any).dailyCreditLimit ?? DEFAULT_CREDIT_LIMIT;
+    const effectiveLimit = limit === 0 ? SAFETY_CAP : limit;
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const todayTimestamp = startOfDay.getTime();
+
+    const allAnalyses = await ctx.db
+      .query("aiAnalyses")
+      .withIndex("by_userId_activityId", (q) => q.eq("userId", user._id))
+      .filter((q) => q.gte(q.field("createdAt"), todayTimestamp))
+      .collect();
+    const analysisCount = allAnalyses.length;
+
+    const allMessages = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_userId_createdAt", (q) =>
+        q.eq("userId", user._id).gte("createdAt", todayTimestamp)
+      )
+      .filter((q) => q.eq(q.field("role"), "assistant"))
+      .collect();
+    const chatCount = allMessages.length;
+
+    const used = analysisCount + chatCount;
+    const warning = used >= effectiveLimit - WARNING_THRESHOLD && used < effectiveLimit;
+    const limitReached = used >= effectiveLimit;
+
+    return {
+      used,
+      limit,
+      effectiveLimit,
+      warning,
+      limitReached,
+      chatCount,
+      analysisCount,
+    };
   },
 });
 
