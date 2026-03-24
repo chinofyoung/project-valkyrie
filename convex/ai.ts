@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { action, internalMutation } from "./_generated/server";
 import { ALLOWED_EMAILS } from "./constants";
 // @ts-ignore
@@ -7,6 +7,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { checkCreditLimit } from "./creditLimit";
+import { getModelOrDefault } from "./models";
 
 // ---------------------------------------------------------------------------
 // Prompt constants
@@ -249,25 +250,28 @@ ${chatSummary ? `COACHING CONVERSATION CONTEXT:\n${chatSummary}\n` : ""}${
 Please analyze this ${activityTypeLabel(actType).toLowerCase()} and provide coaching feedback.
 `.trim();
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+    const model = getModelOrDefault(user.preferredModel);
+    const client = new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: process.env.OPENROUTER_API_KEY,
+    });
+    const response = await client.chat.completions.create({
+      model,
       max_tokens: 1024,
-      system: ACTIVITY_ANALYSIS_PROMPT,
-      messages: [{ role: "user", content: activityData }],
+      messages: [
+        { role: "system", content: ACTIVITY_ANALYSIS_PROMPT },
+        { role: "user", content: activityData },
+      ],
     });
 
-    const responseText = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => (block as { type: "text"; text: string }).text)
-      .join("\n");
+    const responseText = response.choices[0]?.message?.content ?? "";
 
     await ctx.runMutation(internal.ai.insertAnalysis, {
       userId: user._id,
       activityId: args.activityId,
       type: "run_summary",
       content: responseText,
-      model: "claude-sonnet-4-6",
+      model,
       createdAt: Date.now(),
     });
 
@@ -453,24 +457,27 @@ ${chatSummary ? `COACHING CONVERSATION CONTEXT:\n${chatSummary}\n` : ""}${
 Please analyze my training trends and provide coaching feedback.
 `.trim();
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+    const model = getModelOrDefault(user.preferredModel);
+    const client = new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: process.env.OPENROUTER_API_KEY,
+    });
+    const response = await client.chat.completions.create({
+      model,
       max_tokens: 1500,
-      system: PROGRESS_OVERVIEW_PROMPT,
-      messages: [{ role: "user", content: statsMessage }],
+      messages: [
+        { role: "system", content: PROGRESS_OVERVIEW_PROMPT },
+        { role: "user", content: statsMessage },
+      ],
     });
 
-    const responseText = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => (block as { type: "text"; text: string }).text)
-      .join("\n");
+    const responseText = response.choices[0]?.message?.content ?? "";
 
     await ctx.runMutation(internal.ai.insertAnalysis, {
       userId: user._id,
       type: "progress_overview",
       content: responseText,
-      model: "claude-sonnet-4-6",
+      model,
       createdAt: Date.now(),
     });
 

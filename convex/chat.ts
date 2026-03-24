@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import { action, internalAction } from "./_generated/server";
 import { ALLOWED_EMAILS } from "./constants";
 // @ts-ignore
@@ -7,6 +7,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 import { checkCreditLimit } from "./creditLimit";
+import { getModelOrDefault } from "./models";
 
 // ---------------------------------------------------------------------------
 // Prompt constants
@@ -99,6 +100,8 @@ export const sendMessage = action({
     // @ts-ignore
     const user = await ctx.runQuery(api.users.currentUser, {});
     if (!user) throw new Error("User not found");
+
+    const model = getModelOrDefault(user.preferredModel);
 
     // Rate limit check
     const creditStatus = await checkCreditLimit(ctx, user._id);
@@ -229,25 +232,27 @@ ${
         content: msg.content,
       }));
 
-      const apiKey = process.env.ANTHROPIC_API_KEY;
+      const apiKey = process.env.OPENROUTER_API_KEY;
       if (!apiKey) {
-        throw new Error("ANTHROPIC_API_KEY environment variable is not set");
+        throw new Error("OPENROUTER_API_KEY environment variable is not set");
       }
 
       let responseText: string;
       try {
-        const client = new Anthropic({ apiKey });
-        const response = await client.messages.create({
-          model: "claude-sonnet-4-6",
+        const client = new OpenAI({
+          baseURL: "https://openrouter.ai/api/v1",
+          apiKey,
+        });
+        const response = await client.chat.completions.create({
+          model,
           max_tokens: 4096,
-          system: systemPrompt,
-          messages: conversationMessages,
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...conversationMessages,
+          ],
         });
 
-        responseText = response.content
-          .filter((block) => block.type === "text")
-          .map((block) => (block as { type: "text"; text: string }).text)
-          .join("\n");
+        responseText = response.choices[0]?.message?.content ?? "";
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
         throw new Error(`AI coach is unavailable: ${message}`);
@@ -363,20 +368,20 @@ export const compactNow = action({
       ? `Here is the existing conversation summary:\n${existingSummary}\n\nHere are newer messages to incorporate:\n${transcript}\n\nProduce an updated summary that captures all key decisions, preferences, goals, and context from both the existing summary and the new messages. Keep it concise (max 500 words). Write in third person about the athlete.`
       : `Summarize this coaching conversation. Capture key decisions, athlete preferences, goals, training history context, and any plans discussed. Keep it concise (max 500 words). Write in third person about the athlete.\n\n${transcript}`;
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
+    const apiKey = process.env.OPENROUTER_API_KEY;
+    if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
 
-    const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+    const client = new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey,
+    });
+    const response = await client.chat.completions.create({
+      model: "anthropic/claude-sonnet-4",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const summary = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => (block as { type: "text"; text: string }).text)
-      .join("\n");
+    const summary = response.choices[0]?.message?.content ?? "";
 
     await ctx.runMutation(internal.users.updateChatSummary, {
       userId,
@@ -428,23 +433,23 @@ export const compactHistory = internalAction({
       : `Summarize this coaching conversation. Capture key decisions, athlete preferences, goals, training history context, and any plans discussed. Keep it concise (max 500 words). Write in third person about the athlete.\n\n${transcript}`;
 
     // 6. Call Claude to summarize
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      console.error("compactHistory: ANTHROPIC_API_KEY not set, skipping");
+      console.error("compactHistory: OPENROUTER_API_KEY not set, skipping");
       return;
     }
 
-    const client = new Anthropic({ apiKey });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
+    const client = new OpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey,
+    });
+    const response = await client.chat.completions.create({
+      model: "anthropic/claude-sonnet-4",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     });
 
-    const summary = response.content
-      .filter((block) => block.type === "text")
-      .map((block) => (block as { type: "text"; text: string }).text)
-      .join("\n");
+    const summary = response.choices[0]?.message?.content ?? "";
 
     // 7. Store summary on user record
     await ctx.runMutation(internal.users.updateChatSummary, {
