@@ -21,6 +21,10 @@ export function ModelSelector() {
   const [creditsError, setCreditsError] = useState(false);
   const fetchedRef = useRef(false);
 
+  const [selectedModel, setSelectedModel] = useState<string | null>(null);
+  const [freeOpen, setFreeOpen] = useState(true);
+  const [paidOpen, setPaidOpen] = useState(true);
+
   useEffect(() => {
     if (fetchedRef.current) return;
     fetchedRef.current = true;
@@ -36,19 +40,31 @@ export function ModelSelector() {
       .finally(() => setCreditsLoading(false));
   }, [fetchCredits]);
 
+  useEffect(() => {
+    if (user && selectedModel === null) {
+      setSelectedModel(user.preferredModel ?? DEFAULT_MODEL);
+    }
+  }, [user, selectedModel]);
+
   if (!user) return null;
 
-  const currentModel = user.preferredModel ?? DEFAULT_MODEL;
+  const savedModel = user.preferredModel ?? DEFAULT_MODEL;
+  const activeSelectedModel = selectedModel ?? savedModel;
+  const hasUnsavedChange = activeSelectedModel !== savedModel;
+
   const freeModels = AVAILABLE_MODELS.filter((m) => m.tier === "free");
   const paidModels = AVAILABLE_MODELS.filter((m) => m.tier === "paid");
 
-  const handleSelect = async (modelId: string) => {
-    if (modelId === currentModel) return;
-    await updateModel({ modelId });
+  const handleSelect = (modelId: string) => {
+    setSelectedModel(modelId);
+  };
+
+  const handleSave = async () => {
+    await updateModel({ modelId: activeSelectedModel });
   };
 
   const renderModelRow = (model: ModelOption) => {
-    const isActive = currentModel === model.id;
+    const isActive = activeSelectedModel === model.id;
     return (
       <button
         key={model.id}
@@ -88,23 +104,47 @@ export function ModelSelector() {
 
         {/* Free tier */}
         <div className="space-y-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-gray-500 px-1">
-            Free
-          </span>
-          <div className="space-y-1.5">
-            {freeModels.map(renderModelRow)}
-          </div>
+          <button
+            onClick={() => setFreeOpen((o) => !o)}
+            className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-500 px-1 cursor-pointer hover:text-gray-300 transition-colors"
+          >
+            <span>{freeOpen ? "▾" : "▸"}</span>
+            <span>Free</span>
+          </button>
+          {freeOpen && (
+            <div className="space-y-1.5">
+              {freeModels.map(renderModelRow)}
+            </div>
+          )}
         </div>
 
         {/* Paid tier */}
         <div className="space-y-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-gray-500 px-1">
-            Paid
-          </span>
-          <div className="space-y-1.5">
-            {paidModels.map(renderModelRow)}
-          </div>
+          <button
+            onClick={() => setPaidOpen((o) => !o)}
+            className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-gray-500 px-1 cursor-pointer hover:text-gray-300 transition-colors"
+          >
+            <span>{paidOpen ? "▾" : "▸"}</span>
+            <span>Paid</span>
+          </button>
+          {paidOpen && (
+            <div className="space-y-1.5">
+              {paidModels.map(renderModelRow)}
+            </div>
+          )}
         </div>
+
+        {/* Save button */}
+        {hasUnsavedChange && (
+          <div className="pt-1">
+            <button
+              onClick={handleSave}
+              className="bg-[#C8FC03] text-black font-semibold rounded-lg px-5 py-2.5 text-sm hover:opacity-90 transition-opacity"
+            >
+              Save
+            </button>
+          </div>
+        )}
       </div>
 
       {/* OpenRouter credit balance */}
